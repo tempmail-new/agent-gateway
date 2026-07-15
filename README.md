@@ -8,6 +8,7 @@ Agent Gateway is a small, production-shaped TypeScript service for authenticated
 - Bearer-token authentication for gateway requests.
 - Provider registry with an executable local `echo` provider and optional OpenAI-compatible provider.
 - Config-driven provider/model allow policy before provider execution.
+- Config-driven input token budget guard before provider execution.
 - OpenTelemetry API trace hooks around provider execution.
 - Vitest coverage for auth, routing, validation, provider errors, and mocked outbound provider calls.
 - Dockerfile, Makefile, ESLint, Prettier, TypeScript build, and GitHub Actions CI.
@@ -47,20 +48,23 @@ Response:
 
 ## Configuration
 
-| Variable                                | Default                        | Purpose                                                                               |
-| --------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------- |
-| `AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS` | unset                          | Optional comma-separated `provider:model` allow list. Supports `*` wildcards.         |
-| `AGENT_GATEWAY_API_KEYS`                | `dev-token` outside production | Comma-separated bearer tokens allowed to call `/v1/requests`. Required in production. |
-| `AGENT_GATEWAY_DEFAULT_PROVIDER`        | `echo`                         | Provider selected when a request omits `provider`.                                    |
-| `AGENT_GATEWAY_OPENAI_API_KEY`          | unset                          | Enables the `openai-compatible` provider when set.                                    |
-| `AGENT_GATEWAY_OPENAI_BASE_URL`         | `https://api.openai.com/v1`    | Base URL for an OpenAI-compatible Chat Completions API.                               |
-| `AGENT_GATEWAY_OPENAI_TIMEOUT_MS`       | `30000`                        | Outbound provider request timeout in milliseconds.                                    |
-| `OTEL_SERVICE_NAME`                     | `agent-gateway`                | Service name used by OpenTelemetry API tracers.                                       |
-| `PORT`                                  | `8080`                         | HTTP listen port.                                                                     |
+| Variable                                | Default                        | Purpose                                                                                |
+| --------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------- |
+| `AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS` | unset                          | Optional comma-separated `provider:model` allow list. Supports `*` wildcards.          |
+| `AGENT_GATEWAY_API_KEYS`                | `dev-token` outside production | Comma-separated bearer tokens allowed to call `/v1/requests`. Required in production.  |
+| `AGENT_GATEWAY_DEFAULT_PROVIDER`        | `echo`                         | Provider selected when a request omits `provider`.                                     |
+| `AGENT_GATEWAY_MAX_INPUT_TOKENS`        | unset                          | Optional positive integer input-token budget. Over-budget requests are rejected early. |
+| `AGENT_GATEWAY_OPENAI_API_KEY`          | unset                          | Enables the `openai-compatible` provider when set.                                     |
+| `AGENT_GATEWAY_OPENAI_BASE_URL`         | `https://api.openai.com/v1`    | Base URL for an OpenAI-compatible Chat Completions API.                                |
+| `AGENT_GATEWAY_OPENAI_TIMEOUT_MS`       | `30000`                        | Outbound provider request timeout in milliseconds.                                     |
+| `OTEL_SERVICE_NAME`                     | `agent-gateway`                | Service name used by OpenTelemetry API tracers.                                        |
+| `PORT`                                  | `8080`                         | HTTP listen port.                                                                      |
 
 Set `provider` to `openai-compatible` on a request, or set `AGENT_GATEWAY_DEFAULT_PROVIDER=openai-compatible`, to route through the outbound Chat Completions adapter. The adapter requires `AGENT_GATEWAY_OPENAI_API_KEY` and returns normalized `provider_error` responses for upstream failures, malformed responses, request failures, and timeouts.
 
 When `AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS` is set, requests are rejected with `policy_rejected` before provider execution unless the resolved provider and requested model match one of the configured rules. Example: `echo:local-test,openai-compatible:gpt-4o-mini,openai-compatible:*`.
+
+When `AGENT_GATEWAY_MAX_INPUT_TOKENS` is set, the gateway estimates input tokens locally and rejects requests with `budget_exceeded` before provider execution when the estimate is above the configured limit.
 
 ## Development
 
@@ -77,4 +81,4 @@ make validate
 
 ## Roadmap
 
-The first production slice is intentionally narrow. Next useful increments are budget middleware around provider calls, deeper observability, and exported OpenTelemetry SDK wiring for a chosen collector.
+The first production slice is intentionally narrow. Next useful increments are deeper outbound observability and exported OpenTelemetry SDK wiring for a chosen collector.

@@ -3,6 +3,7 @@ export interface GatewayConfig {
   defaultProvider: string;
   openAICompatible?: OpenAICompatibleConfig;
   port: number;
+  requestBudget: RequestBudgetConfig;
   requestPolicy: RequestPolicyConfig;
   serviceName: string;
 }
@@ -15,6 +16,10 @@ export interface OpenAICompatibleConfig {
 
 export interface RequestPolicyConfig {
   allowedProviderModels: readonly ProviderModelRule[];
+}
+
+export interface RequestBudgetConfig {
+  maxInputTokens?: number;
 }
 
 export interface ProviderModelRule {
@@ -37,6 +42,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     defaultProvider,
     openAICompatible,
     port: parsePort(env.PORT),
+    requestBudget: {
+      maxInputTokens: parseOptionalPositiveInteger(
+        env.AGENT_GATEWAY_MAX_INPUT_TOKENS,
+        "AGENT_GATEWAY_MAX_INPUT_TOKENS",
+      ),
+    },
     requestPolicy: {
       allowedProviderModels: parseProviderModelRules(env.AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS),
     },
@@ -123,4 +134,20 @@ function parseProviderModelRules(value: string | undefined): ProviderModelRule[]
       provider: rule.slice(0, separatorIndex),
     };
   });
+}
+
+function parseOptionalPositiveInteger(
+  value: string | undefined,
+  variableName: string,
+): number | undefined {
+  if (value === undefined || value.trim().length === 0) {
+    return undefined;
+  }
+
+  const parsedValue = Number(value);
+  if (!Number.isInteger(parsedValue) || parsedValue < 1) {
+    throw new Error(`${variableName} must be a positive integer`);
+  }
+
+  return parsedValue;
 }

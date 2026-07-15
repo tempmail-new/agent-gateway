@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { GatewayConfig } from "./config.js";
 import { authenticate } from "./http/auth.js";
 import { withGatewayTrace } from "./observability/tracing.js";
+import { evaluateRequestBudget } from "./policy/request-budget.js";
 import { evaluateRequestPolicy } from "./policy/request-policy.js";
 import {
   EchoProvider,
@@ -75,6 +76,17 @@ export function buildApp(config: GatewayConfig) {
           model: gatewayRequest.model,
           provider: provider.name,
           reason: policyDecision.reason,
+        }) as never;
+      }
+
+      const budgetDecision = evaluateRequestBudget(config.requestBudget, gatewayRequest.input);
+
+      if (budgetDecision.type === "rejected") {
+        return reply.code(402).send({
+          error: "budget_exceeded",
+          estimatedInputTokens: budgetDecision.estimatedInputTokens,
+          limit: budgetDecision.limit,
+          reason: budgetDecision.reason,
         }) as never;
       }
 

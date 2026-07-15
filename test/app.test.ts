@@ -156,6 +156,78 @@ describe("agent gateway app", () => {
     });
   });
 
+  it("rejects over-budget requests before provider execution", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const app = buildApp(
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        AGENT_GATEWAY_MAX_INPUT_TOKENS: "1",
+        AGENT_GATEWAY_OPENAI_API_KEY: "provider-token",
+        NODE_ENV: "test",
+        OTEL_SERVICE_NAME: "agent-gateway-test",
+      }),
+    );
+    const response = await app.inject({
+      headers: { authorization: "Bearer test-token" },
+      method: "POST",
+      payload: {
+        input: "hello",
+        model: "gpt-compatible",
+        provider: "openai-compatible",
+      },
+      url: "/v1/requests",
+    });
+
+    expect(response.statusCode).toBe(402);
+    expect(response.json()).toEqual({
+      error: "budget_exceeded",
+      estimatedInputTokens: 2,
+      limit: 1,
+      reason: "estimated_input_tokens_exceeded",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("allows requests within the configured input token budget", async () => {
+    const app = buildApp(
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        AGENT_GATEWAY_MAX_INPUT_TOKENS: "2",
+        NODE_ENV: "test",
+        OTEL_SERVICE_NAME: "agent-gateway-test",
+      }),
+    );
+    const response = await app.inject({
+      headers: { authorization: "Bearer test-token" },
+      method: "POST",
+      payload: {
+        input: "hello",
+        model: "local-test",
+      },
+      url: "/v1/requests",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      model: "local-test",
+      provider: "echo",
+      usage: {
+        inputTokens: 2,
+      },
+    });
+  });
+
+  it("rejects invalid budget configuration", () => {
+    expect(() =>
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        AGENT_GATEWAY_MAX_INPUT_TOKENS: "0",
+        NODE_ENV: "test",
+      }),
+    ).toThrow("AGENT_GATEWAY_MAX_INPUT_TOKENS must be a positive integer");
+  });
+
   it("registers the OpenAI-compatible provider when credentials are configured", async () => {
     const app = buildApp(
       loadConfig({
