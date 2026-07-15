@@ -5,7 +5,13 @@ import { z } from "zod";
 import type { GatewayConfig } from "./config.js";
 import { authenticate } from "./http/auth.js";
 import { withGatewayTrace } from "./observability/tracing.js";
-import { EchoProvider, ProviderRegistry, UnknownProviderError } from "./providers/index.js";
+import {
+  EchoProvider,
+  OpenAICompatibleProvider,
+  ProviderError,
+  ProviderRegistry,
+  UnknownProviderError,
+} from "./providers/index.js";
 import type { GatewayRequest, GatewayResponse, RequestContext } from "./types.js";
 
 const gatewayRequestSchema = z.object({
@@ -23,6 +29,10 @@ export function buildApp(config: GatewayConfig) {
 
   const providers = new ProviderRegistry(config.defaultProvider);
   providers.register(new EchoProvider());
+
+  if (config.openAICompatible !== undefined) {
+    providers.register(new OpenAICompatibleProvider(config.openAICompatible));
+  }
 
   app.get("/healthz", async () => ({
     service: config.serviceName,
@@ -88,6 +98,17 @@ export function buildApp(config: GatewayConfig) {
         error: "unknown_provider",
         provider: error.provider,
         supportedProviders: error.supportedProviders,
+      });
+      return;
+    }
+
+    if (error instanceof ProviderError) {
+      await reply.code(error.statusCode).send({
+        code: error.code,
+        details: error.details,
+        error: "provider_error",
+        message: error.message,
+        provider: error.provider,
       });
       return;
     }

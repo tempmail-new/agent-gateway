@@ -1,5 +1,6 @@
 import type { GatewayRequest, RequestContext } from "../types.js";
 import type { AgentProvider, ProviderResult } from "./types.js";
+import { estimateTokens } from "./token-estimate.js";
 
 export class EchoProvider implements AgentProvider {
   readonly name = "echo";
@@ -20,8 +21,4 @@ export class EchoProvider implements AgentProvider {
       },
     };
   }
-}
-
-function estimateTokens(value: string): number {
-  return Math.max(1, Math.ceil(value.trim().length / 4));
 }
