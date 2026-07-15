@@ -3,6 +3,7 @@ export interface GatewayConfig {
   defaultProvider: string;
   openAICompatible?: OpenAICompatibleConfig;
   port: number;
+  requestPolicy: RequestPolicyConfig;
   serviceName: string;
 }
 
@@ -10,6 +11,15 @@ export interface OpenAICompatibleConfig {
   apiKey: string;
   baseUrl: string;
   timeoutMs: number;
+}
+
+export interface RequestPolicyConfig {
+  allowedProviderModels: readonly ProviderModelRule[];
+}
+
+export interface ProviderModelRule {
+  model: string;
+  provider: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig {
@@ -27,6 +37,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     defaultProvider,
     openAICompatible,
     port: parsePort(env.PORT),
+    requestPolicy: {
+      allowedProviderModels: parseProviderModelRules(env.AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS),
+    },
     serviceName: env.OTEL_SERVICE_NAME ?? "agent-gateway",
   };
 }
@@ -93,4 +106,21 @@ function parseTimeoutMs(value: string | undefined): number {
   }
 
   return timeoutMs;
+}
+
+function parseProviderModelRules(value: string | undefined): ProviderModelRule[] {
+  return parseCsv(value).map((rule) => {
+    const separatorIndex = rule.indexOf(":");
+
+    if (separatorIndex < 1 || separatorIndex === rule.length - 1) {
+      throw new Error(
+        "AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS entries must use provider:model format",
+      );
+    }
+
+    return {
+      model: rule.slice(separatorIndex + 1),
+      provider: rule.slice(0, separatorIndex),
+    };
+  });
 }

@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { GatewayConfig } from "./config.js";
 import { authenticate } from "./http/auth.js";
 import { withGatewayTrace } from "./observability/tracing.js";
+import { evaluateRequestPolicy } from "./policy/request-policy.js";
 import {
   EchoProvider,
   OpenAICompatibleProvider,
@@ -62,6 +63,21 @@ export function buildApp(config: GatewayConfig) {
         requestId,
       };
       const provider = providers.get(gatewayRequest.provider);
+      const policyDecision = evaluateRequestPolicy(
+        config.requestPolicy,
+        provider.name,
+        gatewayRequest.model,
+      );
+
+      if (policyDecision.type === "rejected") {
+        return reply.code(403).send({
+          error: "policy_rejected",
+          model: gatewayRequest.model,
+          provider: provider.name,
+          reason: policyDecision.reason,
+        }) as never;
+      }
+
       const startedAt = performance.now();
 
       return withGatewayTrace(

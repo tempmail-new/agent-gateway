@@ -97,6 +97,65 @@ describe("agent gateway app", () => {
     });
   });
 
+  it("rejects provider and model combinations before provider execution", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const app = buildApp(
+      loadConfig({
+        AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS: "openai-compatible:approved-model",
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        AGENT_GATEWAY_OPENAI_API_KEY: "provider-token",
+        NODE_ENV: "test",
+        OTEL_SERVICE_NAME: "agent-gateway-test",
+      }),
+    );
+    const response = await app.inject({
+      headers: { authorization: "Bearer test-token" },
+      method: "POST",
+      payload: {
+        input: "hello",
+        model: "blocked-model",
+        provider: "openai-compatible",
+      },
+      url: "/v1/requests",
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({
+      error: "policy_rejected",
+      model: "blocked-model",
+      provider: "openai-compatible",
+      reason: "provider_model_not_allowed",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("allows wildcard model policy matches", async () => {
+    const app = buildApp(
+      loadConfig({
+        AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS: "echo:*",
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        NODE_ENV: "test",
+        OTEL_SERVICE_NAME: "agent-gateway-test",
+      }),
+    );
+    const response = await app.inject({
+      headers: { authorization: "Bearer test-token" },
+      method: "POST",
+      payload: {
+        input: "hello",
+        model: "any-local-model",
+      },
+      url: "/v1/requests",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      model: "any-local-model",
+      provider: "echo",
+    });
+  });
+
   it("registers the OpenAI-compatible provider when credentials are configured", async () => {
     const app = buildApp(
       loadConfig({
