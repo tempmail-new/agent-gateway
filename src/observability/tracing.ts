@@ -1,16 +1,24 @@
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 
+export type TraceAttributeValue = boolean | number | string;
+
 export interface TraceHandle {
   requestId: string;
   traceId: string;
 }
 
+export interface TraceOperationContext {
+  handle: TraceHandle;
+  recordEvent(name: string, attributes: Record<string, TraceAttributeValue>): void;
+  setAttributes(attributes: Record<string, TraceAttributeValue | undefined>): void;
+}
+
 export async function withGatewayTrace<T>(
   serviceName: string,
   spanName: string,
-  attributes: Record<string, boolean | number | string>,
+  attributes: Record<string, TraceAttributeValue>,
   fallbackTrace: TraceHandle,
-  operation: (traceHandle: TraceHandle) => Promise<T>,
+  operation: (traceContext: TraceOperationContext) => Promise<T>,
 ): Promise<T> {
   const tracer = trace.getTracer(serviceName);
 
@@ -25,7 +33,19 @@ export async function withGatewayTrace<T>(
         ? { requestId: fallbackTrace.requestId, traceId: spanContext.traceId }
         : fallbackTrace;
 
-      return await operation(traceHandle);
+      return await operation({
+        handle: traceHandle,
+        recordEvent(name, eventAttributes) {
+          span.addEvent(name, eventAttributes);
+        },
+        setAttributes(dynamicAttributes) {
+          for (const [key, value] of Object.entries(dynamicAttributes)) {
+            if (value !== undefined) {
+              span.setAttribute(key, value);
+            }
+          }
+        },
+      });
     } catch (error) {
       span.recordException(error as Error);
       span.setStatus({ code: SpanStatusCode.ERROR });

@@ -99,6 +99,9 @@ export class OpenAICompatibleProvider implements AgentProvider {
       }
 
       return {
+        observability: {
+          upstreamStatus: response.status,
+        },
         output,
         usage: {
           inputTokens: parsed.data.usage?.prompt_tokens ?? estimateTokens(request.input),
@@ -111,7 +114,9 @@ export class OpenAICompatibleProvider implements AgentProvider {
       }
 
       if (isTimeoutError(error)) {
-        throw new ProviderError(this.name, "provider_timeout", 504, "Provider request timed out");
+        throw new ProviderError(this.name, "provider_timeout", 504, "Provider request timed out", {
+          timeoutMs: this.config.timeoutMs,
+        });
       }
 
       throw new ProviderError(this.name, "provider_request_failed", 502, "Provider request failed");

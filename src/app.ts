@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
 import Fastify from "fastify";
+import type { FastifyServerOptions } from "fastify";
 import { z } from "zod";
 
 import type { GatewayConfig } from "./config.js";
 import { authenticate } from "./http/auth.js";
+import type { TraceOperationContext } from "./observability/tracing.js";
 import { withGatewayTrace } from "./observability/tracing.js";
+import { evaluateRequestBudget } from "./policy/request-budget.js";
 import { evaluateRequestPolicy } from "./policy/request-policy.js";
 import {
   EchoProvider,
@@ -22,9 +25,13 @@ const gatewayRequestSchema = z.object({
   provider: z.string().min(1).optional(),
 });
 
-export function buildApp(config: GatewayConfig) {
+export interface BuildAppOptions {
+  logger?: FastifyServerOptions["logger"];
+}
+
+export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
   const app = Fastify({
-    logger: true,
+    logger: options.logger ?? true,
     requestIdHeader: "x-request-id",
   });
 
@@ -78,6 +85,17 @@ export function buildApp(config: GatewayConfig) {
         }) as never;
       }
 
+      const budgetDecision = evaluateRequestBudget(config.requestBudget, gatewayRequest.input);
+
+      if (budgetDecision.type === "rejected") {
+        return reply.code(402).send({
+          error: "budget_exceeded",
+          estimatedInputTokens: budgetDecision.estimatedInputTokens,
+          limit: budgetDecision.limit,
+          reason: budgetDecision.reason,
+        }) as never;
+      }
+
       const startedAt = performance.now();
 
       return withGatewayTrace(
@@ -90,9 +108,11 @@ export function buildApp(config: GatewayConfig) {
           "agent_gateway.request_id": requestId,
         },
         { requestId, traceId: requestId },
-        async (traceHandle) => {
-          const result = await provider.complete(gatewayRequest, context);
-          const durationMs = Math.round((performance.now() - startedAt) * 100) / 100;
+        async (traceContext) => {
+          const result = await observeProviderCall(traceContext, async () =>
+            provider.complete(gatewayRequest, context),
+          );
+          const durationMs = roundDurationMs(performance.now() - startedAt);
 
           return {
             durationMs,
@@ -100,11 +120,80 @@ export function buildApp(config: GatewayConfig) {
             model: gatewayRequest.model,
             output: result.output,
             provider: provider.name,
-            trace: traceHandle,
+            trace: traceContext.handle,
             usage: result.usage,
           };
         },
       );
+
+      async function observeProviderCall<T extends Awaited<ReturnType<typeof provider.complete>>>(
+        traceContext: TraceOperationContext,
+        operation: () => Promise<T>,
+      ): Promise<T> {
+        const providerStartedAt = performance.now();
+
+        try {
+          const result = await operation();
+          const providerDurationMs = roundDurationMs(performance.now() - providerStartedAt);
+
+          traceContext.setAttributes({
+            "agent_gateway.provider.duration_ms": providerDurationMs,
+            "agent_gateway.provider.outcome": "success",
+            "agent_gateway.provider.upstream_status": result.observability?.upstreamStatus,
+          });
+          traceContext.recordEvent("agent_gateway.provider.completed", {
+            "agent_gateway.provider.duration_ms": providerDurationMs,
+            "agent_gateway.provider.name": provider.name,
+          });
+          request.log.info(
+            {
+              model: gatewayRequest.model,
+              provider: provider.name,
+              providerDurationMs,
+              requestId,
+              upstreamStatus: result.observability?.upstreamStatus,
+            },
+            "provider_call_completed",
+          );
+
+          return result;
+        } catch (error) {
+          const providerDurationMs = roundDurationMs(performance.now() - providerStartedAt);
+
+          if (error instanceof ProviderError) {
+            const upstreamStatus = getNumericDetail(error, "upstreamStatus");
+            const timedOut = error.code === "provider_timeout";
+
+            traceContext.setAttributes({
+              "agent_gateway.provider.duration_ms": providerDurationMs,
+              "agent_gateway.provider.error_code": error.code,
+              "agent_gateway.provider.outcome": "error",
+              "agent_gateway.provider.timeout": timedOut,
+              "agent_gateway.provider.upstream_status": upstreamStatus,
+            });
+            traceContext.recordEvent("agent_gateway.provider.failed", {
+              "agent_gateway.provider.duration_ms": providerDurationMs,
+              "agent_gateway.provider.error_code": error.code,
+              "agent_gateway.provider.name": provider.name,
+              "agent_gateway.provider.timeout": timedOut,
+            });
+            request.log.warn(
+              {
+                model: gatewayRequest.model,
+                provider: provider.name,
+                providerDurationMs,
+                providerErrorCode: error.code,
+                requestId,
+                timeout: timedOut,
+                upstreamStatus,
+              },
+              "provider_call_failed",
+            );
+          }
+
+          throw error;
+        }
+      }
     },
   );
 
@@ -134,4 +223,13 @@ export function buildApp(config: GatewayConfig) {
   });
 
   return app;
+}
+
+function getNumericDetail(error: ProviderError, key: string): number | undefined {
+  const value = error.details[key];
+  return typeof value === "number" ? value : undefined;
+}
+
+function roundDurationMs(durationMs: number): number {
+  return Math.round(durationMs * 100) / 100;
 }

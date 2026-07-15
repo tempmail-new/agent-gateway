@@ -1,6 +1,11 @@
 import type { GatewayRequest, RequestContext } from "../types.js";
 
+export interface ProviderObservation {
+  upstreamStatus?: number;
+}
+
 export interface ProviderResult {
+  observability?: ProviderObservation;
   output: string;
   usage: {
     inputTokens: number;
