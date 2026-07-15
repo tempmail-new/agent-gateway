@@ -8,18 +8,20 @@ Agent Gateway keeps the HTTP boundary, provider routing, and observability conce
 2. `authenticate` validates the bearer token and records a non-secret key fingerprint.
 3. Zod validates the request body.
 4. `ProviderRegistry` resolves the requested provider or the configured default provider.
-5. `withGatewayTrace` wraps provider execution with OpenTelemetry API attributes.
-6. The selected provider returns normalized output and usage metadata.
+5. Optional provider adapters perform outbound calls with their own timeout and error normalization.
+6. `withGatewayTrace` wraps provider execution with OpenTelemetry API attributes.
+7. The selected provider returns normalized output and usage metadata.
 
 ## Boundaries
 
 - `src/http`: transport-level concerns such as authentication.
-- `src/providers`: provider interface, registry, and adapters.
+- `src/providers`: provider interface, registry, shared provider errors, and adapters.
 - `src/observability`: tracing hooks independent of Fastify.
 - `src/app.ts`: application composition and routes.
 
 ## Current Tradeoffs
 
 - The `echo` provider is deterministic and local so CI can validate the gateway without external credentials.
+- The `openai-compatible` provider is registered only when `AGENT_GATEWAY_OPENAI_API_KEY` is present, and tests mock outbound calls instead of using live credentials.
 - OpenTelemetry uses the API package only. Runtime exporters can be added later without changing the provider contract.
 - API keys are configured from environment variables. A secret manager integration belongs in a later deployment-focused increment.
