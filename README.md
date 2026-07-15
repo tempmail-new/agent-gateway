@@ -9,7 +9,7 @@ Agent Gateway is a small, production-shaped TypeScript service for authenticated
 - Provider registry with an executable local `echo` provider and optional OpenAI-compatible provider.
 - Config-driven provider/model allow policy before provider execution.
 - Config-driven input token budget guard before provider execution.
-- OpenTelemetry API trace hooks around provider execution.
+- OpenTelemetry API trace hooks and structured logs around provider execution, including upstream status and normalized error code fields without prompts or secrets.
 - Vitest coverage for auth, routing, validation, provider errors, and mocked outbound provider calls.
 - Dockerfile, Makefile, ESLint, Prettier, TypeScript build, and GitHub Actions CI.
 
@@ -81,4 +81,4 @@ make validate
 
 ## Roadmap
 
-The first production slice is intentionally narrow. Next useful increments are deeper outbound observability and exported OpenTelemetry SDK wiring for a chosen collector.
+The first production slice is intentionally narrow. Next useful increments are exported OpenTelemetry SDK wiring for a chosen collector and provider retry policy.

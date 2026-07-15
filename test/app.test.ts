@@ -1,3 +1,4 @@
+import { Writable } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buildApp } from "../src/app.js";
@@ -10,6 +11,44 @@ const config = loadConfig({
   NODE_ENV: "test",
   OTEL_SERVICE_NAME: "agent-gateway-test",
 });
+
+function createLogCapture() {
+  const chunks: string[] = [];
+  const stream = new Writable({
+    write(chunk: Buffer | string, encoding, callback) {
+      void encoding;
+      chunks.push(chunk.toString());
+      callback();
+    },
+  });
+
+  return {
+    allText() {
+      return chunks.join("");
+    },
+    findByMessage(message: string) {
+      return parseLogEntries(chunks).find((entry) => entry.msg === message);
+    },
+    logger: {
+      level: "info",
+      stream,
+    },
+  };
+}
+
+function parseLogEntries(chunks: string[]): Record<string, unknown>[] {
+  return chunks.flatMap((chunk) =>
+    chunk
+      .split("\n")
+      .filter((line) => line.length > 0)
+      .map((line) => {
+        const parsed: unknown = JSON.parse(line);
+        return parsed !== null && typeof parsed === "object"
+          ? (parsed as Record<string, unknown>)
+          : {};
+      }),
+  );
+}
 
 describe("agent gateway app", () => {
   afterEach(() => {
@@ -248,6 +287,7 @@ describe("agent gateway app", () => {
   });
 
   it("routes OpenAI-compatible requests through the chat completions API", async () => {
+    const logs = createLogCapture();
     const fetchMock = vi.fn(async () => {
       return new Response(
         JSON.stringify({
@@ -267,6 +307,7 @@ describe("agent gateway app", () => {
         NODE_ENV: "test",
         OTEL_SERVICE_NAME: "agent-gateway-test",
       }),
+      { logger: logs.logger },
     );
 
     const response = await app.inject({
@@ -282,6 +323,7 @@ describe("agent gateway app", () => {
       },
       url: "/v1/requests",
     });
+    const providerLog = logs.findByMessage("provider_call_completed");
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
@@ -294,6 +336,15 @@ describe("agent gateway app", () => {
         outputTokens: 4,
       },
     });
+    expect(providerLog).toMatchObject({
+      model: "gpt-compatible",
+      provider: "openai-compatible",
+      requestId: "req_openai",
+      upstreamStatus: 200,
+    });
+    expect(typeof providerLog?.providerDurationMs).toBe("number");
+    expect(logs.allText()).not.toContain("provider-token");
+    expect(logs.allText()).not.toContain("Summarize the incident report.");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://provider.example/v1/chat/completions",
       expect.objectContaining({
@@ -311,6 +362,7 @@ describe("agent gateway app", () => {
   });
 
   it("normalizes unsuccessful OpenAI-compatible responses", async () => {
+    const logs = createLogCapture();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
@@ -326,6 +378,7 @@ describe("agent gateway app", () => {
         NODE_ENV: "test",
         OTEL_SERVICE_NAME: "agent-gateway-test",
       }),
+      { logger: logs.logger },
     );
 
     const response = await app.inject({
@@ -338,6 +391,7 @@ describe("agent gateway app", () => {
       },
       url: "/v1/requests",
     });
+    const providerLog = logs.findByMessage("provider_call_failed");
 
     expect(response.statusCode).toBe(502);
     expect(response.json()).toEqual({
@@ -347,6 +401,16 @@ describe("agent gateway app", () => {
       message: "Provider returned an unsuccessful response",
       provider: "openai-compatible",
     });
+    expect(providerLog).toMatchObject({
+      model: "gpt-compatible",
+      provider: "openai-compatible",
+      providerErrorCode: "provider_upstream_error",
+      timeout: false,
+      upstreamStatus: 429,
+    });
+    expect(typeof providerLog?.providerDurationMs).toBe("number");
+    expect(logs.allText()).not.toContain("provider-token");
+    expect(logs.allText()).not.toContain("hello");
   });
 });
 
@@ -372,6 +436,7 @@ describe("OpenAICompatibleProvider", () => {
       }),
     ).rejects.toMatchObject<Partial<ProviderError>>({
       code: "provider_timeout",
+      details: { timeoutMs: 1 },
       provider: "openai-compatible",
       statusCode: 504,
     });
