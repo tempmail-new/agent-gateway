@@ -137,19 +137,24 @@ export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
           const providerDurationMs = roundDurationMs(performance.now() - providerStartedAt);
 
           traceContext.setAttributes({
+            "agent_gateway.provider.attempt_count": result.observability?.attemptCount,
             "agent_gateway.provider.duration_ms": providerDurationMs,
             "agent_gateway.provider.outcome": "success",
+            "agent_gateway.provider.retry_count": toRetryCount(result.observability?.attemptCount),
             "agent_gateway.provider.upstream_status": result.observability?.upstreamStatus,
           });
           traceContext.recordEvent("agent_gateway.provider.completed", {
             "agent_gateway.provider.duration_ms": providerDurationMs,
             "agent_gateway.provider.name": provider.name,
+            ...providerAttemptEventAttributes(result.observability?.attemptCount),
           });
           request.log.info(
             {
               model: gatewayRequest.model,
               provider: provider.name,
+              providerAttemptCount: result.observability?.attemptCount,
               providerDurationMs,
+              providerRetryCount: toRetryCount(result.observability?.attemptCount),
               requestId,
               upstreamStatus: result.observability?.upstreamStatus,
             },
@@ -161,13 +166,16 @@ export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
           const providerDurationMs = roundDurationMs(performance.now() - providerStartedAt);
 
           if (error instanceof ProviderError) {
+            const attemptCount = getNumericDetail(error, "attemptCount");
             const upstreamStatus = getNumericDetail(error, "upstreamStatus");
             const timedOut = error.code === "provider_timeout";
 
             traceContext.setAttributes({
+              "agent_gateway.provider.attempt_count": attemptCount,
               "agent_gateway.provider.duration_ms": providerDurationMs,
               "agent_gateway.provider.error_code": error.code,
               "agent_gateway.provider.outcome": "error",
+              "agent_gateway.provider.retry_count": toRetryCount(attemptCount),
               "agent_gateway.provider.timeout": timedOut,
               "agent_gateway.provider.upstream_status": upstreamStatus,
             });
@@ -175,14 +183,17 @@ export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
               "agent_gateway.provider.duration_ms": providerDurationMs,
               "agent_gateway.provider.error_code": error.code,
               "agent_gateway.provider.name": provider.name,
+              ...providerAttemptEventAttributes(attemptCount),
               "agent_gateway.provider.timeout": timedOut,
             });
             request.log.warn(
               {
                 model: gatewayRequest.model,
                 provider: provider.name,
+                providerAttemptCount: attemptCount,
                 providerDurationMs,
                 providerErrorCode: error.code,
+                providerRetryCount: toRetryCount(attemptCount),
                 requestId,
                 timeout: timedOut,
                 upstreamStatus,
@@ -232,4 +243,19 @@ function getNumericDetail(error: ProviderError, key: string): number | undefined
 
 function roundDurationMs(durationMs: number): number {
   return Math.round(durationMs * 100) / 100;
+}
+
+function toRetryCount(attemptCount: number | undefined): number | undefined {
+  return attemptCount === undefined ? undefined : Math.max(attemptCount - 1, 0);
+}
+
+function providerAttemptEventAttributes(attemptCount: number | undefined): Record<string, number> {
+  if (attemptCount === undefined) {
+    return {};
+  }
+
+  return {
+    "agent_gateway.provider.attempt_count": attemptCount,
+    "agent_gateway.provider.retry_count": Math.max(attemptCount - 1, 0),
+  };
 }
