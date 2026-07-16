@@ -12,6 +12,7 @@ export interface GatewayConfig {
 export interface OpenAICompatibleConfig {
   apiKey: string;
   baseUrl: string;
+  maxAttempts: number;
   timeoutMs: number;
 }
 
@@ -105,6 +106,7 @@ function loadOpenAICompatibleConfig(
   return {
     apiKey,
     baseUrl: parseUrl(env.AGENT_GATEWAY_OPENAI_BASE_URL ?? "https://api.openai.com/v1"),
+    maxAttempts: parseOpenAIMaxAttempts(env.AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS),
     timeoutMs: parseTimeoutMs(env.AGENT_GATEWAY_OPENAI_TIMEOUT_MS),
   };
 }
@@ -128,6 +130,19 @@ function parseTimeoutMs(value: string | undefined): number {
   }
 
   return timeoutMs;
+}
+
+function parseOpenAIMaxAttempts(value: string | undefined): number {
+  if (value === undefined || value.trim().length === 0) {
+    return 1;
+  }
+
+  const maxAttempts = Number.parseInt(value, 10);
+  if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 5) {
+    throw new Error("AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS must be an integer between 1 and 5");
+  }
+
+  return maxAttempts;
 }
 
 function parseProviderModelRules(value: string | undefined): ProviderModelRule[] {

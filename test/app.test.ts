@@ -267,6 +267,17 @@ describe("agent gateway app", () => {
     ).toThrow("AGENT_GATEWAY_MAX_INPUT_TOKENS must be a positive integer");
   });
 
+  it("rejects invalid OpenAI-compatible retry configuration", () => {
+    expect(() =>
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        AGENT_GATEWAY_OPENAI_API_KEY: "provider-token",
+        AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS: "6",
+        NODE_ENV: "test",
+      }),
+    ).toThrow("AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS must be an integer between 1 and 5");
+  });
+
   it("registers the OpenAI-compatible provider when credentials are configured", async () => {
     const app = buildApp(
       loadConfig({
@@ -339,6 +350,8 @@ describe("agent gateway app", () => {
     expect(providerLog).toMatchObject({
       model: "gpt-compatible",
       provider: "openai-compatible",
+      providerAttemptCount: 1,
+      providerRetryCount: 0,
       requestId: "req_openai",
       upstreamStatus: 200,
     });
@@ -396,7 +409,7 @@ describe("agent gateway app", () => {
     expect(response.statusCode).toBe(502);
     expect(response.json()).toEqual({
       code: "provider_upstream_error",
-      details: { upstreamStatus: 429 },
+      details: { attemptCount: 1, upstreamStatus: 429 },
       error: "provider_error",
       message: "Provider returned an unsuccessful response",
       provider: "openai-compatible",
@@ -404,7 +417,9 @@ describe("agent gateway app", () => {
     expect(providerLog).toMatchObject({
       model: "gpt-compatible",
       provider: "openai-compatible",
+      providerAttemptCount: 1,
       providerErrorCode: "provider_upstream_error",
+      providerRetryCount: 0,
       timeout: false,
       upstreamStatus: 429,
     });
@@ -412,9 +427,173 @@ describe("agent gateway app", () => {
     expect(logs.allText()).not.toContain("provider-token");
     expect(logs.allText()).not.toContain("hello");
   });
+
+  it("retries retryable OpenAI-compatible upstream responses before succeeding", async () => {
+    const logs = createLogCapture();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { message: "unavailable" } }), {
+          status: 503,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "Recovered response." } }],
+            usage: { completion_tokens: 3, prompt_tokens: 2 },
+          }),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const app = buildApp(
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        AGENT_GATEWAY_OPENAI_API_KEY: "provider-token",
+        AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS: "3",
+        NODE_ENV: "test",
+        OTEL_SERVICE_NAME: "agent-gateway-test",
+      }),
+      { logger: logs.logger },
+    );
+
+    const response = await app.inject({
+      headers: { authorization: "Bearer test-token" },
+      method: "POST",
+      payload: {
+        input: "hello",
+        model: "gpt-compatible",
+        provider: "openai-compatible",
+      },
+      url: "/v1/requests",
+    });
+    const providerLog = logs.findByMessage("provider_call_completed");
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      output: "Recovered response.",
+      provider: "openai-compatible",
+      usage: {
+        inputTokens: 2,
+        outputTokens: 3,
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(providerLog).toMatchObject({
+      provider: "openai-compatible",
+      providerAttemptCount: 2,
+      providerRetryCount: 1,
+      upstreamStatus: 200,
+    });
+  });
+
+  it("does not retry non-transient OpenAI-compatible upstream responses", async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(JSON.stringify({ error: { message: "bad request" } }), { status: 400 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const app = buildApp(
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        AGENT_GATEWAY_OPENAI_API_KEY: "provider-token",
+        AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS: "3",
+        NODE_ENV: "test",
+        OTEL_SERVICE_NAME: "agent-gateway-test",
+      }),
+    );
+
+    const response = await app.inject({
+      headers: { authorization: "Bearer test-token" },
+      method: "POST",
+      payload: {
+        input: "hello",
+        model: "gpt-compatible",
+        provider: "openai-compatible",
+      },
+      url: "/v1/requests",
+    });
+
+    expect(response.statusCode).toBe(502);
+    expect(response.json()).toEqual({
+      code: "provider_upstream_error",
+      details: { attemptCount: 1, upstreamStatus: 400 },
+      error: "provider_error",
+      message: "Provider returned an unsuccessful response",
+      provider: "openai-compatible",
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
 });
 
 describe("OpenAICompatibleProvider", () => {
+  it("retries request failures before returning a successful response", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("socket closed"))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "A recovered summary." } }],
+          }),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        ),
+      );
+    const provider = new OpenAICompatibleProvider(
+      {
+        apiKey: "provider-token",
+        baseUrl: "https://provider.example/v1",
+        maxAttempts: 2,
+        timeoutMs: 1000,
+      },
+      fetchMock,
+    );
+
+    await expect(
+      provider.complete({
+        input: "hello",
+        model: "gpt-compatible",
+        provider: "openai-compatible",
+      }),
+    ).resolves.toMatchObject({
+      observability: {
+        attemptCount: 2,
+        upstreamStatus: 200,
+      },
+      output: "A recovered summary.",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry malformed successful provider responses", async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response("not-json", { status: 200 });
+    });
+    const provider = new OpenAICompatibleProvider(
+      {
+        apiKey: "provider-token",
+        baseUrl: "https://provider.example/v1",
+        maxAttempts: 3,
+        timeoutMs: 1000,
+      },
+      fetchMock,
+    );
+
+    await expect(
+      provider.complete({
+        input: "hello",
+        model: "gpt-compatible",
+        provider: "openai-compatible",
+      }),
+    ).rejects.toMatchObject<Partial<ProviderError>>({
+      code: "provider_bad_response",
+      details: { attemptCount: 1 },
+      provider: "openai-compatible",
+      statusCode: 502,
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it("normalizes provider timeouts", async () => {
     const fetchMock = vi.fn(async () => {
       throw Object.assign(new Error("deadline exceeded"), { name: "TimeoutError" });
@@ -423,6 +602,7 @@ describe("OpenAICompatibleProvider", () => {
       {
         apiKey: "provider-token",
         baseUrl: "https://provider.example/v1",
+        maxAttempts: 2,
         timeoutMs: 1,
       },
       fetchMock,
@@ -436,9 +616,10 @@ describe("OpenAICompatibleProvider", () => {
       }),
     ).rejects.toMatchObject<Partial<ProviderError>>({
       code: "provider_timeout",
-      details: { timeoutMs: 1 },
+      details: { attemptCount: 2, timeoutMs: 1 },
       provider: "openai-compatible",
       statusCode: 504,
     });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

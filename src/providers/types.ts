@@ -1,6 +1,7 @@
 import type { GatewayRequest, RequestContext } from "../types.js";
 
 export interface ProviderObservation {
+  attemptCount?: number;
   upstreamStatus?: number;
 }
 

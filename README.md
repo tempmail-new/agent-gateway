@@ -9,7 +9,8 @@ Agent Gateway is a small, production-shaped TypeScript service for authenticated
 - Provider registry with an executable local `echo` provider and optional OpenAI-compatible provider.
 - Config-driven provider/model allow policy before provider execution.
 - Config-driven input token budget guard before provider execution.
-- OpenTelemetry traces can be exported to an OTLP HTTP collector when configured, with structured logs around provider execution that include upstream status and normalized error code fields without prompts or secrets.
+- Env-gated transient retry control for OpenAI-compatible provider calls.
+- OpenTelemetry traces can be exported to an OTLP HTTP collector when configured, with structured logs around provider execution that include upstream status, attempt count, retry count, and normalized error code fields without prompts or secrets.
 - Vitest coverage for auth, routing, validation, provider errors, and mocked outbound provider calls.
 - Dockerfile, Makefile, ESLint, Prettier, TypeScript build, and GitHub Actions CI.
 
@@ -56,6 +57,7 @@ Response:
 | `AGENT_GATEWAY_MAX_INPUT_TOKENS`        | unset                          | Optional positive integer input-token budget. Over-budget requests are rejected early. |
 | `AGENT_GATEWAY_OPENAI_API_KEY`          | unset                          | Enables the `openai-compatible` provider when set.                                     |
 | `AGENT_GATEWAY_OPENAI_BASE_URL`         | `https://api.openai.com/v1`    | Base URL for an OpenAI-compatible Chat Completions API.                                |
+| `AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS`     | `1`                            | Provider request attempts for retryable OpenAI-compatible failures. Range: `1` to `5`. |
 | `AGENT_GATEWAY_OPENAI_TIMEOUT_MS`       | `30000`                        | Outbound provider request timeout in milliseconds.                                     |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`           | unset                          | Optional OTLP HTTP collector base URL. The gateway appends `/v1/traces`.               |
 | `OTEL_EXPORTER_OTLP_HEADERS`            | unset                          | Optional comma-separated OTLP headers in `key=value` format.                           |
@@ -65,6 +67,8 @@ Response:
 | `PORT`                                  | `8080`                         | HTTP listen port.                                                                      |
 
 Set `provider` to `openai-compatible` on a request, or set `AGENT_GATEWAY_DEFAULT_PROVIDER=openai-compatible`, to route through the outbound Chat Completions adapter. The adapter requires `AGENT_GATEWAY_OPENAI_API_KEY` and returns normalized `provider_error` responses for upstream failures, malformed responses, request failures, and timeouts.
+
+Set `AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS` above `1` to retry transient OpenAI-compatible failures. Retries are limited to request failures, timeouts, and clearly retryable upstream statuses: `408`, `409`, `425`, `429`, `500`, `502`, `503`, and `504`. Non-transient upstream responses and malformed successful responses are not retried. Provider-call traces and logs include attempt and retry counts.
 
 When `AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS` is set, requests are rejected with `policy_rejected` before provider execution unless the resolved provider and requested model match one of the configured rules. Example: `echo:local-test,openai-compatible:gpt-4o-mini,openai-compatible:*`.
 
@@ -87,4 +91,4 @@ make validate
 
 ## Roadmap
 
-The first production slice is intentionally narrow. The next useful increment is a provider retry policy with explicit retry bounds and tests.
+The first production slice is intentionally narrow. The next useful increment is deployment-focused hardening around secrets and runtime operations.
