@@ -6,6 +6,7 @@ export interface GatewayConfig {
   requestBudget: RequestBudgetConfig;
   requestPolicy: RequestPolicyConfig;
   serviceName: string;
+  telemetry: TelemetryConfig;
 }
 
 export interface OpenAICompatibleConfig {
@@ -20,6 +21,15 @@ export interface RequestPolicyConfig {
 
 export interface RequestBudgetConfig {
   maxInputTokens?: number;
+}
+
+export interface TelemetryConfig {
+  otlpTraceExporter?: OtlpTraceExporterConfig;
+}
+
+export interface OtlpTraceExporterConfig {
+  headers: Record<string, string>;
+  url: string;
 }
 
 export interface ProviderModelRule {
@@ -52,6 +62,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
       allowedProviderModels: parseProviderModelRules(env.AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS),
     },
     serviceName: env.OTEL_SERVICE_NAME ?? "agent-gateway",
+    telemetry: loadTelemetryConfig(env),
   };
 }
 
@@ -150,4 +161,81 @@ function parseOptionalPositiveInteger(
   }
 
   return parsedValue;
+}
+
+function loadTelemetryConfig(env: NodeJS.ProcessEnv): TelemetryConfig {
+  const otlpTraceUrl = parseOtlpTraceEndpoint(env);
+
+  if (otlpTraceUrl === undefined) {
+    return {};
+  }
+
+  return {
+    otlpTraceExporter: {
+      headers: {
+        ...parseOtlpHeaders(env.OTEL_EXPORTER_OTLP_HEADERS, "OTEL_EXPORTER_OTLP_HEADERS"),
+        ...parseOtlpHeaders(
+          env.OTEL_EXPORTER_OTLP_TRACES_HEADERS,
+          "OTEL_EXPORTER_OTLP_TRACES_HEADERS",
+        ),
+      },
+      url: otlpTraceUrl,
+    },
+  };
+}
+
+function parseOtlpTraceEndpoint(env: NodeJS.ProcessEnv): string | undefined {
+  const tracesEndpoint = env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT?.trim();
+
+  if (tracesEndpoint !== undefined && tracesEndpoint.length > 0) {
+    return parseUrlForVariable(tracesEndpoint, "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT");
+  }
+
+  const genericEndpoint = env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim();
+
+  if (genericEndpoint === undefined || genericEndpoint.length === 0) {
+    return undefined;
+  }
+
+  const url = new URL(parseUrlForVariable(genericEndpoint, "OTEL_EXPORTER_OTLP_ENDPOINT"));
+  url.pathname = `${url.pathname.replace(/\/$/, "")}/v1/traces`;
+  return url.toString();
+}
+
+function parseUrlForVariable(value: string, variableName: string): string {
+  try {
+    return new URL(value).toString();
+  } catch {
+    throw new Error(`${variableName} must be a valid URL`);
+  }
+}
+
+function parseOtlpHeaders(value: string | undefined, variableName: string): Record<string, string> {
+  const headers: Record<string, string> = {};
+
+  for (const header of parseCsv(value)) {
+    const separatorIndex = header.indexOf("=");
+
+    if (separatorIndex < 1) {
+      throw new Error(`${variableName} entries must use key=value format`);
+    }
+
+    const key = decodeOtlpHeaderSegment(header.slice(0, separatorIndex).trim(), variableName);
+    const headerValue = decodeOtlpHeaderSegment(
+      header.slice(separatorIndex + 1).trim(),
+      variableName,
+    );
+
+    headers[key] = headerValue;
+  }
+
+  return headers;
+}
+
+function decodeOtlpHeaderSegment(value: string, variableName: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    throw new Error(`${variableName} entries must be URL-encoded key=value pairs`);
+  }
 }
