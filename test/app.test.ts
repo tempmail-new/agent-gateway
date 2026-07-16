@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Writable } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -11,6 +14,15 @@ const config = loadConfig({
   NODE_ENV: "test",
   OTEL_SERVICE_NAME: "agent-gateway-test",
 });
+const tempDirs: string[] = [];
+
+function createTempSecretFile(name: string, value: string): string {
+  const tempDir = mkdtempSync(join(tmpdir(), "agent-gateway-test-"));
+  tempDirs.push(tempDir);
+  const filePath = join(tempDir, name);
+  writeFileSync(filePath, value);
+  return filePath;
+}
 
 function createLogCapture() {
   const chunks: string[] = [];
@@ -53,6 +65,10 @@ function parseLogEntries(chunks: string[]): Record<string, unknown>[] {
 describe("agent gateway app", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+
+    for (const tempDir of tempDirs.splice(0)) {
+      rmSync(tempDir, { force: true, recursive: true });
+    }
   });
 
   it("reports health without authentication", async () => {
@@ -65,6 +81,31 @@ describe("agent gateway app", () => {
       service: "agent-gateway-test",
       status: "ok",
     });
+  });
+
+  it("reports readiness for orchestration probes", async () => {
+    const app = buildApp(config);
+    const response = await app.inject({ method: "GET", url: "/readyz" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      defaultProvider: "echo",
+      providers: ["echo"],
+      service: "agent-gateway-test",
+      status: "ready",
+    });
+  });
+
+  it("fails fast when the configured default provider is unavailable", () => {
+    expect(() =>
+      buildApp(
+        loadConfig({
+          AGENT_GATEWAY_API_KEYS: "test-token",
+          AGENT_GATEWAY_DEFAULT_PROVIDER: "missing",
+          NODE_ENV: "test",
+        }),
+      ),
+    ).toThrow("Unknown provider 'missing'");
   });
 
   it("rejects unauthenticated gateway requests", async () => {
@@ -276,6 +317,31 @@ describe("agent gateway app", () => {
         NODE_ENV: "test",
       }),
     ).toThrow("AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS must be an integer between 1 and 5");
+  });
+
+  it("loads deployment secrets from files", () => {
+    const apiKeysFile = createTempSecretFile("gateway-api-keys", "file-token\n");
+    const providerApiKeyFile = createTempSecretFile("provider-api-key", "provider-file-token\n");
+    const configFromFiles = loadConfig({
+      AGENT_GATEWAY_API_KEYS_FILE: apiKeysFile,
+      AGENT_GATEWAY_OPENAI_API_KEY_FILE: providerApiKeyFile,
+      NODE_ENV: "test",
+    });
+
+    expect([...configFromFiles.apiKeys]).toEqual(["file-token"]);
+    expect(configFromFiles.openAICompatible?.apiKey).toBe("provider-file-token");
+  });
+
+  it("rejects ambiguous inline and file-backed secret configuration", () => {
+    const apiKeysFile = createTempSecretFile("gateway-api-keys", "file-token\n");
+
+    expect(() =>
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "inline-token",
+        AGENT_GATEWAY_API_KEYS_FILE: apiKeysFile,
+        NODE_ENV: "test",
+      }),
+    ).toThrow("AGENT_GATEWAY_API_KEYS and AGENT_GATEWAY_API_KEYS_FILE cannot both be set");
   });
 
   it("registers the OpenAI-compatible provider when credentials are configured", async () => {

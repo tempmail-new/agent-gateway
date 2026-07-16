@@ -42,10 +42,19 @@ export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
     providers.register(new OpenAICompatibleProvider(config.openAICompatible));
   }
 
+  const defaultProvider = providers.get();
+
   app.get("/healthz", async () => ({
     service: config.serviceName,
     status: "ok",
     providers: providers.list(),
+  }));
+
+  app.get("/readyz", async () => ({
+    defaultProvider: defaultProvider.name,
+    providers: providers.list(),
+    service: config.serviceName,
+    status: "ready",
   }));
 
   app.post(
