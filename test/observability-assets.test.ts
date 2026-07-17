@@ -48,6 +48,9 @@ describe("observability operations assets", () => {
     expect(expressions).toContain("agent_gateway_http_server_duration_milliseconds_bucket");
     expect(expressions).toContain("agent_gateway_provider_calls_total");
     expect(expressions).toContain("agent_gateway_provider_duration_milliseconds_bucket");
+    expect(expressions).toContain('http_response_status_code=~"4.."');
+    expect(expressions).toContain('http_response_status_code=~"5.."');
+    expect(expressions).toContain('agent_gateway_provider_outcome="error"');
   });
 
   it("includes collector and alert examples wired to the dashboard metric family", () => {
@@ -60,5 +63,10 @@ describe("observability operations assets", () => {
     expect(alertRules).toContain("agent_gateway_http_server_requests_total");
     expect(alertRules).toContain("agent_gateway_provider_calls_total");
     expect(alertRules).toContain("agent_gateway_provider_duration_milliseconds_bucket");
+    expect(alertRules).toContain(
+      "sum(increase(agent_gateway_http_server_requests_total[10m])) >= 20",
+    );
+    expect(alertRules).toContain("sum(increase(agent_gateway_provider_calls_total[10m])) >= 10");
+    expect(alertRules).toContain("sum(rate(agent_gateway_provider_calls_total[5m]))");
   });
 });

@@ -6,7 +6,7 @@ This pack gives operators a first concrete path from the gateway's OTLP output t
 
 - `collector/otel-collector.yaml`: local OpenTelemetry Collector example that receives OTLP HTTP/gRPC, exports traces to the debug exporter, and exposes metrics for Prometheus scraping.
 - `dashboards/grafana-agent-gateway.json`: Grafana dashboard import for HTTP volume/latency and provider volume/errors/latency.
-- `alerts/prometheus-rules.yaml`: starter Prometheus alert rules for HTTP 5xx rate, provider error rate, and provider latency.
+- `alerts/prometheus-rules.yaml`: starter Prometheus alert rules for HTTP 5xx rate, provider error rate, and provider latency, tuned with minimum traffic gates for low-volume services.
 - `runbooks/gateway-observability.md`: operator runbook for triage and tuning.
 
 ## Gateway Configuration
@@ -51,3 +51,15 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 npm run dev
 
 curl -s http://localhost:9464/metrics | grep agent_gateway
 ```
+
+## Traffic Tuning Baseline
+
+Use one normal operating window before tightening thresholds. For a local baseline, generate a mix of successful requests, authentication failures, and policy or budget rejections, then compare dashboard ratios with the raw metric scrape.
+
+Starter alert gates now require enough samples before firing:
+
+- HTTP 5xx ratio: at least 20 gateway requests in the rolling 10 minute window.
+- Provider error ratio: at least 10 provider calls in the rolling 10 minute window.
+- Provider p95 latency: sustained provider traffic above 0.05 calls per second before evaluating the 10 second p95 threshold.
+
+Keep the gates close to observed traffic. Lower them only for very quiet deployments where missing a single failed request matters more than alert noise; raise them for busier deployments once baseline request volume is known.
