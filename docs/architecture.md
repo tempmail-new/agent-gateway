@@ -2,6 +2,14 @@
 
 Agent Gateway keeps the HTTP boundary, provider routing, and observability concerns separate so new provider adapters can be added without rewriting request intake.
 
+## Runtime Operations
+
+- `/healthz` is a lightweight process health endpoint.
+- `/readyz` reports the service name, registered providers, and resolved default provider for deployment readiness checks.
+- The Docker image includes a healthcheck that probes `/readyz` on the configured `PORT`.
+- Startup fails if the configured default provider is not registered, which catches deployment misconfiguration before traffic is accepted.
+- Gateway and OpenAI-compatible API keys can be sourced from readable non-empty files for orchestrator-mounted secrets.
+
 ## Request Flow
 
 1. `POST /v1/requests` receives a JSON payload.
@@ -32,4 +40,4 @@ Agent Gateway keeps the HTTP boundary, provider routing, and observability conce
 - Input token budgeting is opt-in and uses a simple local estimate so CI and early rejection behavior stay deterministic.
 - OTLP export is opt-in so local development and CI do not require a collector.
 - Provider-call logs intentionally exclude prompts, metadata, bearer tokens, and provider API keys. They include operational fields such as provider, model, request ID, duration, upstream status, attempt count, retry count, timeout flag, and normalized error code.
-- API keys are configured from environment variables. A secret manager integration belongs in a later deployment-focused increment.
+- API keys can be configured through inline environment variables or matching `*_FILE` variables for mounted secret files. Direct secret manager APIs still belong in a later platform-specific increment.

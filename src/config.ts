@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 export interface GatewayConfig {
   apiKeys: ReadonlySet<string>;
   defaultProvider: string;
@@ -39,7 +41,9 @@ export interface ProviderModelRule {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig {
-  const apiKeys = parseCsv(env.AGENT_GATEWAY_API_KEYS);
+  const apiKeys = parseCsv(
+    readSecretValue(env, "AGENT_GATEWAY_API_KEYS", "AGENT_GATEWAY_API_KEYS_FILE"),
+  );
   const defaultProvider = env.AGENT_GATEWAY_DEFAULT_PROVIDER ?? "echo";
   const nodeEnv = env.NODE_ENV ?? "development";
   const openAICompatible = loadOpenAICompatibleConfig(env, defaultProvider);
@@ -91,7 +95,11 @@ function loadOpenAICompatibleConfig(
   env: NodeJS.ProcessEnv,
   defaultProvider: string,
 ): OpenAICompatibleConfig | undefined {
-  const apiKey = env.AGENT_GATEWAY_OPENAI_API_KEY?.trim();
+  const apiKey = readSecretValue(
+    env,
+    "AGENT_GATEWAY_OPENAI_API_KEY",
+    "AGENT_GATEWAY_OPENAI_API_KEY_FILE",
+  );
 
   if (apiKey === undefined || apiKey.length === 0) {
     if (defaultProvider === "openai-compatible") {
@@ -109,6 +117,40 @@ function loadOpenAICompatibleConfig(
     maxAttempts: parseOpenAIMaxAttempts(env.AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS),
     timeoutMs: parseTimeoutMs(env.AGENT_GATEWAY_OPENAI_TIMEOUT_MS),
   };
+}
+
+function readSecretValue(
+  env: NodeJS.ProcessEnv,
+  variableName: string,
+  fileVariableName: string,
+): string | undefined {
+  const inlineValue = env[variableName]?.trim();
+  const filePath = env[fileVariableName]?.trim();
+
+  if (
+    inlineValue !== undefined &&
+    inlineValue.length > 0 &&
+    filePath !== undefined &&
+    filePath.length > 0
+  ) {
+    throw new Error(`${variableName} and ${fileVariableName} cannot both be set`);
+  }
+
+  if (filePath === undefined || filePath.length === 0) {
+    return inlineValue;
+  }
+
+  try {
+    const fileValue = readFileSync(filePath, "utf8").trim();
+
+    if (fileValue.length === 0) {
+      throw new Error("empty secret file");
+    }
+
+    return fileValue;
+  } catch {
+    throw new Error(`${fileVariableName} must point to a readable non-empty file`);
+  }
 }
 
 function parseUrl(value: string): string {

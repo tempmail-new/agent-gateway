@@ -4,15 +4,16 @@ Agent Gateway is a small, production-shaped TypeScript service for authenticated
 
 ## What Exists
 
-- Fastify API with `/healthz` and `POST /v1/requests`.
+- Fastify API with `/healthz`, `/readyz`, and `POST /v1/requests`.
 - Bearer-token authentication for gateway requests.
 - Provider registry with an executable local `echo` provider and optional OpenAI-compatible provider.
 - Config-driven provider/model allow policy before provider execution.
 - Config-driven input token budget guard before provider execution.
 - Env-gated transient retry control for OpenAI-compatible provider calls.
+- File-backed secret loading for deployment-mounted gateway and provider API keys.
 - OpenTelemetry traces can be exported to an OTLP HTTP collector when configured, with structured logs around provider execution that include upstream status, attempt count, retry count, and normalized error code fields without prompts or secrets.
 - Vitest coverage for auth, routing, validation, provider errors, and mocked outbound provider calls.
-- Dockerfile, Makefile, ESLint, Prettier, TypeScript build, and GitHub Actions CI.
+- Dockerfile with a readiness healthcheck, Makefile, ESLint, Prettier, TypeScript build, and GitHub Actions CI.
 
 ## API
 
@@ -49,24 +50,30 @@ Response:
 
 ## Configuration
 
-| Variable                                | Default                        | Purpose                                                                                |
-| --------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------- |
-| `AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS` | unset                          | Optional comma-separated `provider:model` allow list. Supports `*` wildcards.          |
-| `AGENT_GATEWAY_API_KEYS`                | `dev-token` outside production | Comma-separated bearer tokens allowed to call `/v1/requests`. Required in production.  |
-| `AGENT_GATEWAY_DEFAULT_PROVIDER`        | `echo`                         | Provider selected when a request omits `provider`.                                     |
-| `AGENT_GATEWAY_MAX_INPUT_TOKENS`        | unset                          | Optional positive integer input-token budget. Over-budget requests are rejected early. |
-| `AGENT_GATEWAY_OPENAI_API_KEY`          | unset                          | Enables the `openai-compatible` provider when set.                                     |
-| `AGENT_GATEWAY_OPENAI_BASE_URL`         | `https://api.openai.com/v1`    | Base URL for an OpenAI-compatible Chat Completions API.                                |
-| `AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS`     | `1`                            | Provider request attempts for retryable OpenAI-compatible failures. Range: `1` to `5`. |
-| `AGENT_GATEWAY_OPENAI_TIMEOUT_MS`       | `30000`                        | Outbound provider request timeout in milliseconds.                                     |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`           | unset                          | Optional OTLP HTTP collector base URL. The gateway appends `/v1/traces`.               |
-| `OTEL_EXPORTER_OTLP_HEADERS`            | unset                          | Optional comma-separated OTLP headers in `key=value` format.                           |
-| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`    | unset                          | Optional exact OTLP HTTP traces endpoint. Takes precedence over the base endpoint.     |
-| `OTEL_EXPORTER_OTLP_TRACES_HEADERS`     | unset                          | Optional trace-specific OTLP headers. Overrides generic header keys.                   |
-| `OTEL_SERVICE_NAME`                     | `agent-gateway`                | Service name used by OpenTelemetry API tracers.                                        |
-| `PORT`                                  | `8080`                         | HTTP listen port.                                                                      |
+| Variable                                | Default                        | Purpose                                                                                                         |
+| --------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS` | unset                          | Optional comma-separated `provider:model` allow list. Supports `*` wildcards.                                   |
+| `AGENT_GATEWAY_API_KEYS`                | `dev-token` outside production | Comma-separated bearer tokens allowed to call `/v1/requests`. Required in production.                           |
+| `AGENT_GATEWAY_API_KEYS_FILE`           | unset                          | Path to a readable file containing `AGENT_GATEWAY_API_KEYS`. Cannot be combined with the inline variable.       |
+| `AGENT_GATEWAY_DEFAULT_PROVIDER`        | `echo`                         | Provider selected when a request omits `provider`.                                                              |
+| `AGENT_GATEWAY_MAX_INPUT_TOKENS`        | unset                          | Optional positive integer input-token budget. Over-budget requests are rejected early.                          |
+| `AGENT_GATEWAY_OPENAI_API_KEY`          | unset                          | Enables the `openai-compatible` provider when set.                                                              |
+| `AGENT_GATEWAY_OPENAI_API_KEY_FILE`     | unset                          | Path to a readable file containing `AGENT_GATEWAY_OPENAI_API_KEY`. Cannot be combined with the inline variable. |
+| `AGENT_GATEWAY_OPENAI_BASE_URL`         | `https://api.openai.com/v1`    | Base URL for an OpenAI-compatible Chat Completions API.                                                         |
+| `AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS`     | `1`                            | Provider request attempts for retryable OpenAI-compatible failures. Range: `1` to `5`.                          |
+| `AGENT_GATEWAY_OPENAI_TIMEOUT_MS`       | `30000`                        | Outbound provider request timeout in milliseconds.                                                              |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`           | unset                          | Optional OTLP HTTP collector base URL. The gateway appends `/v1/traces`.                                        |
+| `OTEL_EXPORTER_OTLP_HEADERS`            | unset                          | Optional comma-separated OTLP headers in `key=value` format.                                                    |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`    | unset                          | Optional exact OTLP HTTP traces endpoint. Takes precedence over the base endpoint.                              |
+| `OTEL_EXPORTER_OTLP_TRACES_HEADERS`     | unset                          | Optional trace-specific OTLP headers. Overrides generic header keys.                                            |
+| `OTEL_SERVICE_NAME`                     | `agent-gateway`                | Service name used by OpenTelemetry API tracers.                                                                 |
+| `PORT`                                  | `8080`                         | HTTP listen port.                                                                                               |
 
-Set `provider` to `openai-compatible` on a request, or set `AGENT_GATEWAY_DEFAULT_PROVIDER=openai-compatible`, to route through the outbound Chat Completions adapter. The adapter requires `AGENT_GATEWAY_OPENAI_API_KEY` and returns normalized `provider_error` responses for upstream failures, malformed responses, request failures, and timeouts.
+`/healthz` returns a lightweight process health response. `/readyz` returns the configured service name, registered providers, and resolved default provider for deployment readiness checks. The container image uses `/readyz` for its Docker healthcheck.
+
+Set `provider` to `openai-compatible` on a request, or set `AGENT_GATEWAY_DEFAULT_PROVIDER=openai-compatible`, to route through the outbound Chat Completions adapter. The adapter requires `AGENT_GATEWAY_OPENAI_API_KEY` or `AGENT_GATEWAY_OPENAI_API_KEY_FILE` and returns normalized `provider_error` responses for upstream failures, malformed responses, request failures, and timeouts. Startup fails if the configured default provider is not registered.
+
+Use the `*_FILE` secret variables when mounting secrets from an orchestrator. File contents are trimmed, must be non-empty, and cannot be combined with the matching inline secret variable.
 
 Set `AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS` above `1` to retry transient OpenAI-compatible failures. Retries are limited to request failures, timeouts, and clearly retryable upstream statuses: `408`, `409`, `425`, `429`, `500`, `502`, `503`, and `504`. Non-transient upstream responses and malformed successful responses are not retried. Provider-call traces and logs include attempt and retry counts.
 
