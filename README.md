@@ -13,6 +13,7 @@ Agent Gateway is a small, production-shaped TypeScript service for authenticated
 - File-backed secret loading for deployment-mounted gateway and provider API keys.
 - OpenTelemetry traces and metrics can be exported to an OTLP HTTP collector when configured, with structured logs around provider execution that include upstream status, attempt count, retry count, and normalized error code fields without prompts or secrets.
 - Gateway metrics cover HTTP request count/duration and provider call count/duration with bounded operational attributes.
+- Operator-facing observability assets under `docs/observability` cover collector wiring, a Grafana dashboard import, starter Prometheus alerts, and a runbook for the shipped metrics.
 - Vitest coverage for auth, routing, validation, provider errors, and mocked outbound provider calls.
 - Dockerfile with a readiness healthcheck, Makefile, ESLint, Prettier, TypeScript build, and GitHub Actions CI.
 
@@ -88,6 +89,8 @@ When `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, or `OT
 
 Metrics use the same OpenTelemetry bootstrap as traces. The first metric slice records `agent_gateway.http.server.requests`, `agent_gateway.http.server.duration`, `agent_gateway.provider.calls`, and `agent_gateway.provider.duration`. HTTP metrics include method, route, and status code. Provider metrics include provider, outcome, and normalized error code.
 
+See `docs/observability/README.md` for an operator pack with an OpenTelemetry Collector example, Prometheus/Grafana dashboard artifact, starter alert rules, and runbook guidance for these metrics.
+
 ## Development
 
 ```bash
@@ -103,4 +106,4 @@ make validate
 
 ## Roadmap
 
-The production slice is intentionally narrow. Future observability work can add dashboards, alerting, and a broader metric taxonomy after this exporter and first metric surface are reviewed in practice.
+The production slice is intentionally narrow. Future observability work can tune the included dashboard and alert thresholds against real traffic before expanding the metric taxonomy.
