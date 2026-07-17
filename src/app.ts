@@ -5,6 +5,8 @@ import { z } from "zod";
 
 import type { GatewayConfig } from "./config.js";
 import { authenticate } from "./http/auth.js";
+import { createGatewayMetrics } from "./observability/metrics.js";
+import type { MetricsRecorder } from "./observability/metrics.js";
 import type { TraceOperationContext } from "./observability/tracing.js";
 import { withGatewayTrace } from "./observability/tracing.js";
 import { evaluateRequestBudget } from "./policy/request-budget.js";
@@ -27,6 +29,7 @@ const gatewayRequestSchema = z.object({
 
 export interface BuildAppOptions {
   logger?: FastifyServerOptions["logger"];
+  metrics?: MetricsRecorder;
 }
 
 export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
@@ -34,6 +37,7 @@ export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
     logger: options.logger ?? true,
     requestIdHeader: "x-request-id",
   });
+  const metricsRecorder = options.metrics ?? createGatewayMetrics(config.serviceName);
 
   const providers = new ProviderRegistry(config.defaultProvider);
   providers.register(new EchoProvider());
@@ -43,6 +47,15 @@ export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
   }
 
   const defaultProvider = providers.get();
+
+  app.addHook("onResponse", async (request, reply) => {
+    metricsRecorder.recordHttpRequest({
+      durationMs: roundDurationMs(reply.elapsedTime),
+      method: request.method,
+      route: request.routeOptions.url ?? "unmatched",
+      statusCode: reply.statusCode,
+    });
+  });
 
   app.get("/healthz", async () => ({
     service: config.serviceName,
@@ -152,6 +165,11 @@ export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
             "agent_gateway.provider.retry_count": toRetryCount(result.observability?.attemptCount),
             "agent_gateway.provider.upstream_status": result.observability?.upstreamStatus,
           });
+          metricsRecorder.recordProviderCall({
+            durationMs: providerDurationMs,
+            outcome: "success",
+            provider: provider.name,
+          });
           traceContext.recordEvent("agent_gateway.provider.completed", {
             "agent_gateway.provider.duration_ms": providerDurationMs,
             "agent_gateway.provider.name": provider.name,
@@ -187,6 +205,12 @@ export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
               "agent_gateway.provider.retry_count": toRetryCount(attemptCount),
               "agent_gateway.provider.timeout": timedOut,
               "agent_gateway.provider.upstream_status": upstreamStatus,
+            });
+            metricsRecorder.recordProviderCall({
+              durationMs: providerDurationMs,
+              errorCode: error.code,
+              outcome: "error",
+              provider: provider.name,
             });
             traceContext.recordEvent("agent_gateway.provider.failed", {
               "agent_gateway.provider.duration_ms": providerDurationMs,

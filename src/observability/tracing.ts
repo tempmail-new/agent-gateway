@@ -1,12 +1,17 @@
 import { SpanStatusCode, trace } from "@opentelemetry/api";
+import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { NodeSDK } from "@opentelemetry/sdk-node";
+import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 
 import type { GatewayConfig } from "../config.js";
 
 export type TraceAttributeValue = boolean | number | string;
 
 type NodeSDKOptions = NonNullable<ConstructorParameters<typeof NodeSDK>[0]>;
+type MetricExporterConfig = ConstructorParameters<typeof OTLPMetricExporter>[0];
+type MetricReaderOptions = ConstructorParameters<typeof PeriodicExportingMetricReader>[0];
+type MetricReader = NonNullable<NodeSDKOptions["metricReaders"]>[number];
 type TraceExporterConfig = ConstructorParameters<typeof OTLPTraceExporter>[0];
 
 export interface TraceHandle {
@@ -27,6 +32,8 @@ export interface TelemetryLifecycle {
 }
 
 export interface TelemetryDependencies {
+  createMetricExporter?(config: MetricExporterConfig): MetricReaderOptions["exporter"];
+  createMetricReader?(options: MetricReaderOptions): MetricReader;
   createSDK?(options: NodeSDKOptions): TelemetrySDK;
   createTraceExporter?(config: TraceExporterConfig): NodeSDKOptions["traceExporter"];
 }
@@ -40,9 +47,10 @@ export function createTelemetry(
   config: GatewayConfig,
   dependencies: TelemetryDependencies = {},
 ): TelemetryLifecycle {
-  const exporterConfig = config.telemetry.otlpTraceExporter;
+  const metricExporterConfig = config.telemetry.otlpMetricExporter;
+  const traceExporterConfig = config.telemetry.otlpTraceExporter;
 
-  if (exporterConfig === undefined) {
+  if (metricExporterConfig === undefined && traceExporterConfig === undefined) {
     return {
       enabled: false,
       shutdown: async () => {},
@@ -50,22 +58,43 @@ export function createTelemetry(
     };
   }
 
-  const traceExporter =
-    dependencies.createTraceExporter?.({
-      headers: exporterConfig.headers,
-      url: exporterConfig.url,
-    }) ??
-    new OTLPTraceExporter({
-      headers: exporterConfig.headers,
-      url: exporterConfig.url,
-    });
+  const metricReaders: MetricReader[] = [];
+
+  if (metricExporterConfig !== undefined) {
+    const metricExporter =
+      dependencies.createMetricExporter?.({
+        headers: metricExporterConfig.headers,
+        url: metricExporterConfig.url,
+      }) ??
+      new OTLPMetricExporter({
+        headers: metricExporterConfig.headers,
+        url: metricExporterConfig.url,
+      });
+    metricReaders.push(
+      dependencies.createMetricReader?.({ exporter: metricExporter }) ??
+        new PeriodicExportingMetricReader({ exporter: metricExporter }),
+    );
+  }
+
   const sdkOptions: NodeSDKOptions = {
     instrumentations: [],
     logRecordProcessors: [],
-    metricReaders: [],
+    metricReaders,
     serviceName: config.serviceName,
-    traceExporter,
   };
+
+  if (traceExporterConfig !== undefined) {
+    sdkOptions.traceExporter =
+      dependencies.createTraceExporter?.({
+        headers: traceExporterConfig.headers,
+        url: traceExporterConfig.url,
+      }) ??
+      new OTLPTraceExporter({
+        headers: traceExporterConfig.headers,
+        url: traceExporterConfig.url,
+      });
+  }
+
   const sdk = dependencies.createSDK?.(sdkOptions) ?? new NodeSDK(sdkOptions);
   let started = false;
 

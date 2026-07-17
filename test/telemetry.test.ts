@@ -23,28 +23,45 @@ describe("telemetry configuration", () => {
       OTEL_SERVICE_NAME: "agent-gateway-test",
     });
 
-    expect(config.telemetry.otlpTraceExporter).toEqual({
-      headers: {},
-      url: "http://collector.example:4318/v1/traces",
+    expect(config.telemetry).toEqual({
+      otlpMetricExporter: {
+        headers: {},
+        url: "http://collector.example:4318/v1/metrics",
+      },
+      otlpTraceExporter: {
+        headers: {},
+        url: "http://collector.example:4318/v1/traces",
+      },
     });
   });
 
-  it("prefers a trace-specific OTLP endpoint and merges trace headers over generic headers", () => {
+  it("prefers signal-specific OTLP endpoints and merges signal headers over generic headers", () => {
     const config = loadConfig({
       AGENT_GATEWAY_API_KEYS: "test-token",
       NODE_ENV: "test",
       OTEL_EXPORTER_OTLP_HEADERS: "authorization=Bearer%20generic,x-tenant=demo",
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "https://collector.example/custom/metrics",
+      OTEL_EXPORTER_OTLP_METRICS_HEADERS: "authorization=Bearer%20metrics",
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "https://collector.example/custom/traces",
       OTEL_EXPORTER_OTLP_TRACES_HEADERS: "authorization=Bearer%20trace",
       OTEL_SERVICE_NAME: "agent-gateway-test",
     });
 
-    expect(config.telemetry.otlpTraceExporter).toEqual({
-      headers: {
-        authorization: "Bearer trace",
-        "x-tenant": "demo",
+    expect(config.telemetry).toEqual({
+      otlpMetricExporter: {
+        headers: {
+          authorization: "Bearer metrics",
+          "x-tenant": "demo",
+        },
+        url: "https://collector.example/custom/metrics",
       },
-      url: "https://collector.example/custom/traces",
+      otlpTraceExporter: {
+        headers: {
+          authorization: "Bearer trace",
+          "x-tenant": "demo",
+        },
+        url: "https://collector.example/custom/traces",
+      },
     });
   });
 
@@ -74,6 +91,23 @@ describe("telemetry configuration", () => {
         OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://collector.example/v1/traces",
       }),
     ).toThrow("OTEL_EXPORTER_OTLP_HEADERS entries must be URL-encoded key=value pairs");
+
+    expect(() =>
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        NODE_ENV: "test",
+        OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "not a url",
+      }),
+    ).toThrow("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT must be a valid URL");
+
+    expect(() =>
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        NODE_ENV: "test",
+        OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "http://collector.example/v1/metrics",
+        OTEL_EXPORTER_OTLP_METRICS_HEADERS: "missing-separator",
+      }),
+    ).toThrow("OTEL_EXPORTER_OTLP_METRICS_HEADERS entries must use key=value format");
   });
 });
 
@@ -94,7 +128,7 @@ describe("telemetry lifecycle", () => {
     expect(createSDK).not.toHaveBeenCalled();
   });
 
-  it("starts and shuts down the OTLP SDK once when export is enabled", async () => {
+  it("starts and shuts down the OTLP SDK once when trace export is enabled", async () => {
     const sdk = {
       shutdown: vi.fn(async () => {}),
       start: vi.fn(),
@@ -110,7 +144,7 @@ describe("telemetry lifecycle", () => {
       loadConfig({
         AGENT_GATEWAY_API_KEYS: "test-token",
         NODE_ENV: "test",
-        OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector.example:4318",
+        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://collector.example:4318/v1/traces",
         OTEL_SERVICE_NAME: "agent-gateway-test",
       }),
       { createSDK, createTraceExporter },
@@ -133,6 +167,51 @@ describe("telemetry lifecycle", () => {
         metricReaders: [],
         serviceName: "agent-gateway-test",
         traceExporter,
+      }),
+    );
+    expect(sdk.start).toHaveBeenCalledOnce();
+    expect(sdk.shutdown).toHaveBeenCalledOnce();
+  });
+
+  it("adds a metric reader when metric export is enabled", async () => {
+    const sdk = {
+      shutdown: vi.fn(async () => {}),
+      start: vi.fn(),
+    };
+    const metricExporter = {} as ReturnType<
+      NonNullable<TelemetryDependencies["createMetricExporter"]>
+    >;
+    const metricReader = {} as ReturnType<NonNullable<TelemetryDependencies["createMetricReader"]>>;
+    const createMetricExporter = vi.fn<NonNullable<TelemetryDependencies["createMetricExporter"]>>(
+      () => metricExporter,
+    );
+    const createMetricReader = vi.fn<NonNullable<TelemetryDependencies["createMetricReader"]>>(
+      () => metricReader,
+    );
+    const createSDK = vi.fn<NonNullable<TelemetryDependencies["createSDK"]>>(() => sdk);
+    const telemetry = createTelemetry(
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        NODE_ENV: "test",
+        OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "http://collector.example:4318/v1/metrics",
+        OTEL_SERVICE_NAME: "agent-gateway-test",
+      }),
+      { createMetricExporter, createMetricReader, createSDK },
+    );
+
+    telemetry.start();
+    await telemetry.shutdown();
+
+    expect(telemetry.enabled).toBe(true);
+    expect(createMetricExporter).toHaveBeenCalledWith({
+      headers: {},
+      url: "http://collector.example:4318/v1/metrics",
+    });
+    expect(createMetricReader).toHaveBeenCalledWith({ exporter: metricExporter });
+    expect(createSDK).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metricReaders: [metricReader],
+        serviceName: "agent-gateway-test",
       }),
     );
     expect(sdk.start).toHaveBeenCalledOnce();

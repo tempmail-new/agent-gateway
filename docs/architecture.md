@@ -20,15 +20,17 @@ Agent Gateway keeps the HTTP boundary, provider routing, and observability conce
 6. Request budget enforcement rejects over-limit input token estimates before execution when a budget is configured.
 7. Optional provider adapters perform outbound calls with their own timeout, retry, and error normalization rules.
 8. `withGatewayTrace` wraps provider execution with OpenTelemetry API attributes and events for provider duration, upstream status, attempt count, retry count, timeout state, and normalized error codes.
-9. When an OTLP endpoint is configured, the OpenTelemetry Node SDK exports those spans to the configured HTTP collector and flushes during process shutdown.
-10. The selected provider returns normalized output and usage metadata.
+9. Provider execution records a small metric set for provider call count and duration, tagged by provider, outcome, and normalized error code.
+10. Fastify response hooks record HTTP request count and duration, tagged by method, route, and status code.
+11. When an OTLP endpoint is configured, the OpenTelemetry Node SDK exports spans and/or metrics to the configured HTTP collector and flushes during process shutdown.
+12. The selected provider returns normalized output and usage metadata.
 
 ## Boundaries
 
 - `src/http`: transport-level concerns such as authentication.
 - `src/policy`: request governance decisions independent of Fastify and provider adapters.
 - `src/providers`: provider interface, registry, shared provider errors, and adapters.
-- `src/observability`: tracing hooks and telemetry bootstrap independent of Fastify route logic.
+- `src/observability`: tracing hooks, metric instruments, and telemetry bootstrap independent of provider adapters.
 - `src/app.ts`: application composition and routes.
 - `src/server.ts`: process startup, HTTP listen, and graceful telemetry shutdown.
 
@@ -38,6 +40,7 @@ Agent Gateway keeps the HTTP boundary, provider routing, and observability conce
 - The `openai-compatible` provider is registered only when `AGENT_GATEWAY_OPENAI_API_KEY` is present, and tests mock outbound calls instead of using live credentials. Its retry control is opt-in with a bounded attempt range and only retries request failures, timeouts, and selected transient upstream statuses.
 - Provider/model policy is opt-in so existing deployments keep permissive behavior until an allow list is configured.
 - Input token budgeting is opt-in and uses a simple local estimate so CI and early rejection behavior stay deterministic.
-- OTLP export is opt-in so local development and CI do not require a collector.
+- OTLP export is opt-in so local development and CI do not require a collector. Generic collector endpoints enable trace and metric export paths; signal-specific endpoints can enable either path independently.
+- The first metric surface is intentionally small: HTTP request count/duration and provider call count/duration. Dashboards, alerts, and a larger taxonomy are deferred until these instruments are exercised.
 - Provider-call logs intentionally exclude prompts, metadata, bearer tokens, and provider API keys. They include operational fields such as provider, model, request ID, duration, upstream status, attempt count, retry count, timeout flag, and normalized error code.
 - API keys can be configured through inline environment variables or matching `*_FILE` variables for mounted secret files. Direct secret manager APIs still belong in a later platform-specific increment.
