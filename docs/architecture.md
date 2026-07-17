@@ -23,7 +23,8 @@ Agent Gateway keeps the HTTP boundary, provider routing, and observability conce
 9. Provider execution records a small metric set for provider call count and duration, tagged by provider, outcome, and normalized error code.
 10. Fastify response hooks record HTTP request count and duration, tagged by method, route, and status code.
 11. When an OTLP endpoint is configured, the OpenTelemetry Node SDK exports spans and/or metrics to the configured HTTP collector and flushes during process shutdown.
-12. The selected provider returns normalized output and usage metadata.
+12. Operator assets under `docs/observability` show a first collector, dashboard, alert, and runbook path for the emitted metric surface.
+13. The selected provider returns normalized output and usage metadata.
 
 ## Boundaries
 
@@ -41,6 +42,6 @@ Agent Gateway keeps the HTTP boundary, provider routing, and observability conce
 - Provider/model policy is opt-in so existing deployments keep permissive behavior until an allow list is configured.
 - Input token budgeting is opt-in and uses a simple local estimate so CI and early rejection behavior stay deterministic.
 - OTLP export is opt-in so local development and CI do not require a collector. Generic collector endpoints enable trace and metric export paths; signal-specific endpoints can enable either path independently.
-- The first metric surface is intentionally small: HTTP request count/duration and provider call count/duration. Dashboards, alerts, and a larger taxonomy are deferred until these instruments are exercised.
+- The first metric surface is intentionally small: HTTP request count/duration and provider call count/duration. The repository includes starter collector, dashboard, alert, and runbook assets for these instruments; a larger taxonomy is deferred until these signals are exercised.
 - Provider-call logs intentionally exclude prompts, metadata, bearer tokens, and provider API keys. They include operational fields such as provider, model, request ID, duration, upstream status, attempt count, retry count, timeout flag, and normalized error code.
 - API keys can be configured through inline environment variables or matching `*_FILE` variables for mounted secret files. Direct secret manager APIs still belong in a later platform-specific increment.
