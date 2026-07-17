@@ -27,13 +27,17 @@ export interface RequestBudgetConfig {
 }
 
 export interface TelemetryConfig {
+  otlpMetricExporter?: OtlpMetricExporterConfig;
   otlpTraceExporter?: OtlpTraceExporterConfig;
 }
 
-export interface OtlpTraceExporterConfig {
+export interface OtlpExporterConfig {
   headers: Record<string, string>;
   url: string;
 }
+
+export type OtlpMetricExporterConfig = OtlpExporterConfig;
+export type OtlpTraceExporterConfig = OtlpExporterConfig;
 
 export interface ProviderModelRule {
   model: string;
@@ -221,14 +225,29 @@ function parseOptionalPositiveInteger(
 }
 
 function loadTelemetryConfig(env: NodeJS.ProcessEnv): TelemetryConfig {
-  const otlpTraceUrl = parseOtlpTraceEndpoint(env);
+  const otlpMetricUrl = parseOtlpSignalEndpoint(
+    env,
+    "metrics",
+    "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+  );
+  const otlpTraceUrl = parseOtlpSignalEndpoint(env, "traces", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT");
+  const telemetry: TelemetryConfig = {};
 
-  if (otlpTraceUrl === undefined) {
-    return {};
+  if (otlpMetricUrl !== undefined) {
+    telemetry.otlpMetricExporter = {
+      headers: {
+        ...parseOtlpHeaders(env.OTEL_EXPORTER_OTLP_HEADERS, "OTEL_EXPORTER_OTLP_HEADERS"),
+        ...parseOtlpHeaders(
+          env.OTEL_EXPORTER_OTLP_METRICS_HEADERS,
+          "OTEL_EXPORTER_OTLP_METRICS_HEADERS",
+        ),
+      },
+      url: otlpMetricUrl,
+    };
   }
 
-  return {
-    otlpTraceExporter: {
+  if (otlpTraceUrl !== undefined) {
+    telemetry.otlpTraceExporter = {
       headers: {
         ...parseOtlpHeaders(env.OTEL_EXPORTER_OTLP_HEADERS, "OTEL_EXPORTER_OTLP_HEADERS"),
         ...parseOtlpHeaders(
@@ -237,15 +256,21 @@ function loadTelemetryConfig(env: NodeJS.ProcessEnv): TelemetryConfig {
         ),
       },
       url: otlpTraceUrl,
-    },
-  };
+    };
+  }
+
+  return telemetry;
 }
 
-function parseOtlpTraceEndpoint(env: NodeJS.ProcessEnv): string | undefined {
-  const tracesEndpoint = env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT?.trim();
+function parseOtlpSignalEndpoint(
+  env: NodeJS.ProcessEnv,
+  signalPath: "metrics" | "traces",
+  endpointVariableName: string,
+): string | undefined {
+  const signalEndpoint = env[endpointVariableName]?.trim();
 
-  if (tracesEndpoint !== undefined && tracesEndpoint.length > 0) {
-    return parseUrlForVariable(tracesEndpoint, "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT");
+  if (signalEndpoint !== undefined && signalEndpoint.length > 0) {
+    return parseUrlForVariable(signalEndpoint, endpointVariableName);
   }
 
   const genericEndpoint = env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim();
@@ -255,7 +280,7 @@ function parseOtlpTraceEndpoint(env: NodeJS.ProcessEnv): string | undefined {
   }
 
   const url = new URL(parseUrlForVariable(genericEndpoint, "OTEL_EXPORTER_OTLP_ENDPOINT"));
-  url.pathname = `${url.pathname.replace(/\/$/, "")}/v1/traces`;
+  url.pathname = `${url.pathname.replace(/\/$/, "")}/v1/${signalPath}`;
   return url.toString();
 }
 

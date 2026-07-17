@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buildApp } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
+import type { HttpRequestMetric, ProviderCallMetric } from "../src/observability/metrics.js";
 import { OpenAICompatibleProvider } from "../src/providers/index.js";
 import type { ProviderError } from "../src/providers/index.js";
 
@@ -44,6 +45,24 @@ function createLogCapture() {
     logger: {
       level: "info",
       stream,
+    },
+  };
+}
+
+function createMetricsCapture() {
+  const httpRequests: HttpRequestMetric[] = [];
+  const providerCalls: ProviderCallMetric[] = [];
+
+  return {
+    httpRequests,
+    providerCalls,
+    recorder: {
+      recordHttpRequest(metric: HttpRequestMetric) {
+        httpRequests.push(metric);
+      },
+      recordProviderCall(metric: ProviderCallMetric) {
+        providerCalls.push(metric);
+      },
     },
   };
 }
@@ -121,7 +140,8 @@ describe("agent gateway app", () => {
   });
 
   it("routes authenticated requests to the echo provider with trace metadata", async () => {
-    const app = buildApp(config);
+    const metrics = createMetricsCapture();
+    const app = buildApp(config, { metrics: metrics.recorder });
     const response = await app.inject({
       headers: {
         authorization: "Bearer test-token",
@@ -154,6 +174,19 @@ describe("agent gateway app", () => {
       model: "local-test",
       requestId: "req_123",
     });
+    expect(metrics.httpRequests).toHaveLength(1);
+    expect(metrics.httpRequests[0]).toMatchObject({
+      method: "POST",
+      route: "/v1/requests",
+      statusCode: 200,
+    });
+    expect(typeof metrics.httpRequests[0]?.durationMs).toBe("number");
+    expect(metrics.providerCalls).toHaveLength(1);
+    expect(metrics.providerCalls[0]).toMatchObject({
+      outcome: "success",
+      provider: "echo",
+    });
+    expect(typeof metrics.providerCalls[0]?.durationMs).toBe("number");
   });
 
   it("returns a typed error for unknown providers", async () => {
@@ -442,6 +475,7 @@ describe("agent gateway app", () => {
 
   it("normalizes unsuccessful OpenAI-compatible responses", async () => {
     const logs = createLogCapture();
+    const metrics = createMetricsCapture();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
@@ -457,7 +491,7 @@ describe("agent gateway app", () => {
         NODE_ENV: "test",
         OTEL_SERVICE_NAME: "agent-gateway-test",
       }),
-      { logger: logs.logger },
+      { logger: logs.logger, metrics: metrics.recorder },
     );
 
     const response = await app.inject({
@@ -490,6 +524,18 @@ describe("agent gateway app", () => {
       upstreamStatus: 429,
     });
     expect(typeof providerLog?.providerDurationMs).toBe("number");
+    expect(metrics.httpRequests).toHaveLength(1);
+    expect(metrics.httpRequests[0]).toMatchObject({
+      method: "POST",
+      route: "/v1/requests",
+      statusCode: 502,
+    });
+    expect(metrics.providerCalls).toHaveLength(1);
+    expect(metrics.providerCalls[0]).toMatchObject({
+      errorCode: "provider_upstream_error",
+      outcome: "error",
+      provider: "openai-compatible",
+    });
     expect(logs.allText()).not.toContain("provider-token");
     expect(logs.allText()).not.toContain("hello");
   });
