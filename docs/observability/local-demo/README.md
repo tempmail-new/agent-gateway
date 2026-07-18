@@ -5,7 +5,7 @@ This demo starts the gateway with the shipped OpenTelemetry Collector, Prometheu
 ## Start
 
 ```bash
-docker compose -f compose.observability.yaml up --build
+make observability-up
 ```
 
 Open these local endpoints:
@@ -19,12 +19,16 @@ Open these local endpoints:
 
 Grafana anonymous local access is enabled for the demo stack. The Prometheus datasource and Agent Gateway dashboard are provisioned automatically.
 
-## Generate Traffic
-
-In a second terminal:
+To wait for the gateway and Prometheus after a detached start:
 
 ```bash
-docs/observability/local-demo/generate-traffic.sh
+make observability-ready
+```
+
+## Generate Traffic
+
+```bash
+make observability-traffic
 ```
 
 The script sends successful echo-provider requests plus authentication, policy, budget, and validation rejections so the HTTP dashboard panels have a useful local shape. Provider panels populate from the successful echo calls.
@@ -32,14 +36,15 @@ The script sends successful echo-provider requests plus authentication, policy, 
 ## Inspect
 
 ```bash
-curl -s http://localhost:9464/metrics | grep agent_gateway
-curl -s http://localhost:9090/api/v1/rules | grep AgentGateway
+make observability-inspect
 ```
 
 Prometheus loads the starter rules from `docs/observability/alerts/prometheus-rules.yaml`. They are traffic-gated and may stay inactive during a short smoke run; the purpose of the demo is to prove the scrape path, rule loading, and dashboard wiring.
 
+Use `make observability-smoke` to start the stack, wait for readiness, generate sample traffic, and run the inspection checks as one local smoke command. Use `make observability-logs` to tail container logs while investigating startup or scrape issues.
+
 ## Stop
 
 ```bash
-docker compose -f compose.observability.yaml down
+make observability-down
 ```
