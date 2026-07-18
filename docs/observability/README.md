@@ -44,13 +44,13 @@ When exported through the collector's Prometheus exporter, dots become underscor
 Run the gateway, collector, Prometheus, and Grafana together:
 
 ```bash
-docker compose -f compose.observability.yaml up --build
+make observability-up
 ```
 
-Generate sample traffic from another terminal:
+Generate sample traffic:
 
 ```bash
-docs/observability/local-demo/generate-traffic.sh
+make observability-traffic
 ```
 
 Then inspect:
@@ -59,6 +59,8 @@ Then inspect:
 - Raw metrics: `http://localhost:9464/metrics`
 - Prometheus rules and targets: `http://localhost:9090`
 - Grafana dashboard: `http://localhost:3000/d/agent-gateway-ops/agent-gateway`
+
+Use `make observability-smoke` to start the stack, wait for readiness, generate traffic, and verify metric scrape output and Prometheus rule loading in one command. Stop the stack with `make observability-down`.
 
 See `docs/observability/local-demo/README.md` for the full smoke workflow.
 

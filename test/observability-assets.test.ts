@@ -72,6 +72,7 @@ describe("observability operations assets", () => {
 
   it("ships a compose-based local demo wired to the observability pack", () => {
     const compose = readRepoFile("compose.observability.yaml");
+    const makefile = readRepoFile("Makefile");
     const prometheus = readRepoFile("docs/observability/local-demo/prometheus.yml");
     const grafanaDatasource = readRepoFile(
       "docs/observability/local-demo/grafana/provisioning/datasources/prometheus.yml",
@@ -91,6 +92,24 @@ describe("observability operations assets", () => {
     expect(compose).toContain(
       "./docs/observability/dashboards/grafana-agent-gateway.json:/var/lib/grafana/dashboards/agent-gateway.json:ro",
     );
+    expect(makefile).toContain(
+      ".PHONY: build fmt fmt-check lint observability-down observability-inspect observability-logs observability-ready observability-smoke observability-traffic observability-up test validate",
+    );
+    expect(makefile).toContain(
+      "OBSERVABILITY_COMPOSE := docker compose -f compose.observability.yaml",
+    );
+    expect(makefile).toContain("observability-up:");
+    expect(makefile).toContain("$(OBSERVABILITY_COMPOSE) up --build -d");
+    expect(makefile).toContain("observability-traffic:");
+    expect(makefile).toContain("docs/observability/local-demo/generate-traffic.sh");
+    expect(makefile).toContain("observability-inspect:");
+    expect(makefile).toContain("http://localhost:9464/metrics | grep agent_gateway");
+    expect(makefile).toContain("http://localhost:9090/api/v1/rules | grep AgentGateway");
+    expect(makefile).toContain(
+      "observability-smoke: observability-up observability-ready observability-traffic observability-inspect",
+    );
+    expect(makefile).toContain("observability-down:");
+    expect(makefile).toContain("$(OBSERVABILITY_COMPOSE) down");
     expect(prometheus).toContain("otel-collector:9464");
     expect(prometheus).toContain("/etc/prometheus/rules/agent-gateway.yaml");
     expect(grafanaDatasource).toContain("url: http://prometheus:9090");
@@ -98,5 +117,35 @@ describe("observability operations assets", () => {
     expect(trafficScript).toContain("AGENT_GATEWAY_DEMO_TOKEN");
     expect(trafficScript).toContain("blocked-model");
     expect(trafficScript).toContain("grep agent_gateway");
+  });
+
+  it("documents Makefile helper targets for the local observability smoke workflow", () => {
+    const docs = [
+      readRepoFile("README.md"),
+      readRepoFile("docs/observability/README.md"),
+      readRepoFile("docs/observability/local-demo/README.md"),
+    ].join("\n");
+
+    for (const target of [
+      "make observability-up",
+      "make observability-ready",
+      "make observability-traffic",
+      "make observability-inspect",
+      "make observability-smoke",
+      "make observability-down",
+    ]) {
+      expect(docs).toContain(target);
+    }
+  });
+
+  it("waits for local demo readiness before one-command smoke traffic", () => {
+    const makefile = readRepoFile("Makefile");
+
+    expect(makefile).toContain("observability-ready:");
+    expect(makefile).toContain("http://localhost:8080/readyz");
+    expect(makefile).toContain("http://localhost:9090/-/ready");
+    expect(makefile).toContain(
+      "observability-smoke: observability-up observability-ready observability-traffic observability-inspect",
+    );
   });
 });
