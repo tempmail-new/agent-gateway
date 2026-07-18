@@ -4,46 +4,52 @@ groups:
       - alert: AgentGatewayElevatedHttp5xxRate
         expr: |
           (
-            sum(rate(agent_gateway_http_server_requests_total{http_response_status_code=~"5.."}[5m]))
+            sum(increase(agent_gateway_http_server_requests_total{http_response_status_code=~"5.."}[10m]))
             /
-            clamp_min(sum(rate(agent_gateway_http_server_requests_total[5m])), 1)
+            clamp_min(sum(increase(agent_gateway_http_server_requests_total[10m])), 1)
           ) > 0.05
+          and sum(increase(agent_gateway_http_server_requests_total[10m])) >= 20
         for: 10m
         labels:
           severity: warning
           service: agent-gateway
         annotations:
           summary: Agent Gateway HTTP 5xx rate is elevated
-          description: More than 5% of gateway HTTP requests returned 5xx responses for 10 minutes.
+          description: More than 5% of at least 20 gateway HTTP requests returned 5xx responses in the rolling 10 minute window.
           runbook_url: docs/observability/runbooks/gateway-observability.md
 
       - alert: AgentGatewayProviderErrorRate
         expr: |
           (
-            sum(rate(agent_gateway_provider_calls_total{agent_gateway_provider_outcome="error"}[5m]))
+            sum(increase(agent_gateway_provider_calls_total{agent_gateway_provider_outcome="error"}[10m]))
             /
-            clamp_min(sum(rate(agent_gateway_provider_calls_total[5m])), 1)
+            clamp_min(sum(increase(agent_gateway_provider_calls_total[10m])), 1)
           ) > 0.10
+          and sum(increase(agent_gateway_provider_calls_total[10m])) >= 10
         for: 10m
         labels:
           severity: warning
           service: agent-gateway
         annotations:
           summary: Agent Gateway provider error rate is elevated
-          description: More than 10% of provider calls failed for 10 minutes.
+          description: More than 10% of at least 10 provider calls failed in the rolling 10 minute window.
           runbook_url: docs/observability/runbooks/gateway-observability.md
 
       - alert: AgentGatewayProviderP95LatencyHigh
         expr: |
-          histogram_quantile(
-            0.95,
-            sum(rate(agent_gateway_provider_duration_milliseconds_bucket[5m])) by (le, agent_gateway_provider_name)
-          ) > 10000
+          (
+            histogram_quantile(
+              0.95,
+              sum(rate(agent_gateway_provider_duration_milliseconds_bucket[5m])) by (le, agent_gateway_provider_name)
+            ) > 10000
+          )
+          and on (agent_gateway_provider_name)
+          sum(rate(agent_gateway_provider_calls_total[5m])) by (agent_gateway_provider_name) > 0.05
         for: 15m
         labels:
           severity: warning
           service: agent-gateway
         annotations:
           summary: Agent Gateway provider p95 latency is high
-          description: Provider p95 latency exceeded 10 seconds for 15 minutes.
+          description: Provider p95 latency exceeded 10 seconds for 15 minutes while the provider handled sustained traffic.
           runbook_url: docs/observability/runbooks/gateway-observability.md

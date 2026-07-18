@@ -151,6 +151,71 @@
       },
       "fieldConfig": {
         "defaults": {
+          "max": 1,
+          "min": 0,
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "sum(increase(agent_gateway_http_server_requests_total{http_response_status_code=~\"5..\"}[$__range])) / clamp_min(sum(increase(agent_gateway_http_server_requests_total[$__range])), 1)",
+          "legendFormat": "5xx ratio",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(agent_gateway_http_server_requests_total{http_response_status_code=~\"4..\"}[$__range])) / clamp_min(sum(increase(agent_gateway_http_server_requests_total[$__range])), 1)",
+          "legendFormat": "4xx ratio",
+          "refId": "B"
+        }
+      ],
+      "title": "HTTP Error Ratio",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "max": 1,
+          "min": 0,
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "id": 7,
+      "targets": [
+        {
+          "expr": "sum(increase(agent_gateway_provider_calls_total{agent_gateway_provider_outcome=\"error\"}[$__range])) / clamp_min(sum(increase(agent_gateway_provider_calls_total[$__range])), 1)",
+          "legendFormat": "provider error ratio",
+          "refId": "A"
+        }
+      ],
+      "title": "Provider Error Ratio",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
           "unit": "ms"
         },
         "overrides": []
@@ -159,7 +224,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 14
+        "y": 21
       },
       "id": 5,
       "targets": [
