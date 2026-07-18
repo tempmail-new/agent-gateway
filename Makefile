@@ -39,9 +39,7 @@ observability-traffic:
 	docs/observability/local-demo/generate-traffic.sh
 
 observability-inspect:
-	curl -fsS http://localhost:8080/readyz
-	curl -fsS http://localhost:9464/metrics | grep agent_gateway
-	curl -fsS http://localhost:9090/api/v1/rules | grep AgentGateway
+	docs/observability/local-demo/inspect.sh
 
 observability-logs:
 	$(OBSERVABILITY_COMPOSE) logs -f --tail=100

@@ -81,6 +81,7 @@ describe("observability operations assets", () => {
       "docs/observability/local-demo/grafana/provisioning/dashboards/agent-gateway.yml",
     );
     const trafficScript = readRepoFile("docs/observability/local-demo/generate-traffic.sh");
+    const inspectScript = readRepoFile("docs/observability/local-demo/inspect.sh");
 
     expect(compose).toContain("OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318");
     expect(compose).toContain(
@@ -103,8 +104,7 @@ describe("observability operations assets", () => {
     expect(makefile).toContain("observability-traffic:");
     expect(makefile).toContain("docs/observability/local-demo/generate-traffic.sh");
     expect(makefile).toContain("observability-inspect:");
-    expect(makefile).toContain("http://localhost:9464/metrics | grep agent_gateway");
-    expect(makefile).toContain("http://localhost:9090/api/v1/rules | grep AgentGateway");
+    expect(makefile).toContain("docs/observability/local-demo/inspect.sh");
     expect(makefile).toContain(
       "observability-smoke: observability-up observability-ready observability-traffic observability-inspect",
     );
@@ -117,6 +117,16 @@ describe("observability operations assets", () => {
     expect(trafficScript).toContain("AGENT_GATEWAY_DEMO_TOKEN");
     expect(trafficScript).toContain("blocked-model");
     expect(trafficScript).toContain("grep agent_gateway");
+    expect(inspectScript).toContain("GATEWAY_URL");
+    expect(inspectScript).toContain("COLLECTOR_METRICS_URL");
+    expect(inspectScript).toContain("PROMETHEUS_URL");
+    expect(inspectScript).toContain("GRAFANA_URL");
+    expect(inspectScript).toContain("agent_gateway");
+    expect(inspectScript).toContain("AgentGatewayElevatedHttp5xxRate");
+    expect(inspectScript).toContain("AgentGatewayElevatedProviderErrorRate");
+    expect(inspectScript).toContain("AgentGatewayHighProviderLatency");
+    expect(inspectScript).toContain("agent-gateway-otel-collector");
+    expect(inspectScript).toContain("agent-gateway-ops");
   });
 
   it("documents Makefile helper targets for the local observability smoke workflow", () => {

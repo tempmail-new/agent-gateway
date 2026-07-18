@@ -60,7 +60,7 @@ Then inspect:
 - Prometheus rules and targets: `http://localhost:9090`
 - Grafana dashboard: `http://localhost:3000/d/agent-gateway-ops/agent-gateway`
 
-Use `make observability-smoke` to start the stack, wait for readiness, generate traffic, and verify metric scrape output and Prometheus rule loading in one command. Stop the stack with `make observability-down`.
+Use `make observability-smoke` to start the stack, wait for readiness, generate traffic, and verify gateway readiness, metric scrape output, Prometheus rule and target state, and Grafana dashboard provisioning in one command. Stop the stack with `make observability-down`.
 
 See `docs/observability/local-demo/README.md` for the full smoke workflow.
 
