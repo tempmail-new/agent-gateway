@@ -69,4 +69,34 @@ describe("observability operations assets", () => {
     expect(alertRules).toContain("sum(increase(agent_gateway_provider_calls_total[10m])) >= 10");
     expect(alertRules).toContain("sum(rate(agent_gateway_provider_calls_total[5m]))");
   });
+
+  it("ships a compose-based local demo wired to the observability pack", () => {
+    const compose = readRepoFile("compose.observability.yaml");
+    const prometheus = readRepoFile("docs/observability/local-demo/prometheus.yml");
+    const grafanaDatasource = readRepoFile(
+      "docs/observability/local-demo/grafana/provisioning/datasources/prometheus.yml",
+    );
+    const grafanaDashboard = readRepoFile(
+      "docs/observability/local-demo/grafana/provisioning/dashboards/agent-gateway.yml",
+    );
+    const trafficScript = readRepoFile("docs/observability/local-demo/generate-traffic.sh");
+
+    expect(compose).toContain("OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318");
+    expect(compose).toContain(
+      "./docs/observability/collector/otel-collector.yaml:/etc/otelcol/config.yaml:ro",
+    );
+    expect(compose).toContain(
+      "./docs/observability/alerts/prometheus-rules.yaml:/etc/prometheus/rules/agent-gateway.yaml:ro",
+    );
+    expect(compose).toContain(
+      "./docs/observability/dashboards/grafana-agent-gateway.json:/var/lib/grafana/dashboards/agent-gateway.json:ro",
+    );
+    expect(prometheus).toContain("otel-collector:9464");
+    expect(prometheus).toContain("/etc/prometheus/rules/agent-gateway.yaml");
+    expect(grafanaDatasource).toContain("url: http://prometheus:9090");
+    expect(grafanaDashboard).toContain("path: /var/lib/grafana/dashboards");
+    expect(trafficScript).toContain("AGENT_GATEWAY_DEMO_TOKEN");
+    expect(trafficScript).toContain("blocked-model");
+    expect(trafficScript).toContain("grep agent_gateway");
+  });
 });
