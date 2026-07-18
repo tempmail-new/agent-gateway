@@ -8,6 +8,7 @@ This pack gives operators a first concrete path from the gateway's OTLP output t
 - `dashboards/grafana-agent-gateway.json`: Grafana dashboard import for HTTP volume/latency and provider volume/errors/latency.
 - `alerts/prometheus-rules.yaml`: starter Prometheus alert rules for HTTP 5xx rate, provider error rate, and provider latency, tuned with minimum traffic gates for low-volume services.
 - `runbooks/gateway-observability.md`: operator runbook for triage and tuning.
+- `local-demo/`: Docker Compose support, Prometheus scrape config, Grafana provisioning, and sample traffic for a local end-to-end smoke run.
 
 ## Gateway Configuration
 
@@ -38,7 +39,30 @@ The gateway currently emits these OpenTelemetry instruments:
 
 When exported through the collector's Prometheus exporter, dots become underscores and counters/histograms receive backend-specific suffixes such as `_total` and `_bucket`.
 
-## Local Smoke Test
+## Local Demo
+
+Run the gateway, collector, Prometheus, and Grafana together:
+
+```bash
+docker compose -f compose.observability.yaml up --build
+```
+
+Generate sample traffic from another terminal:
+
+```bash
+docs/observability/local-demo/generate-traffic.sh
+```
+
+Then inspect:
+
+- Gateway readiness: `http://localhost:8080/readyz`
+- Raw metrics: `http://localhost:9464/metrics`
+- Prometheus rules and targets: `http://localhost:9090`
+- Grafana dashboard: `http://localhost:3000/d/agent-gateway-ops/agent-gateway`
+
+See `docs/observability/local-demo/README.md` for the full smoke workflow.
+
+## Manual Collector Smoke Test
 
 Run the gateway and collector together, then scrape the Prometheus exporter:
 
