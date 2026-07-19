@@ -82,6 +82,7 @@ describe("observability operations assets", () => {
     );
     const trafficScript = readRepoFile("docs/observability/local-demo/generate-traffic.sh");
     const inspectScript = readRepoFile("docs/observability/local-demo/inspect.sh");
+    const smokeScript = readRepoFile("docs/observability/local-demo/smoke.sh");
 
     expect(compose).toContain("OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318");
     expect(compose).toContain(
@@ -105,9 +106,8 @@ describe("observability operations assets", () => {
     expect(makefile).toContain("docs/observability/local-demo/generate-traffic.sh");
     expect(makefile).toContain("observability-inspect:");
     expect(makefile).toContain("docs/observability/local-demo/inspect.sh");
-    expect(makefile).toContain(
-      "observability-smoke: observability-up observability-ready observability-traffic observability-inspect",
-    );
+    expect(makefile).toContain("observability-smoke:");
+    expect(makefile).toContain("docs/observability/local-demo/smoke.sh");
     expect(makefile).toContain("observability-down:");
     expect(makefile).toContain("$(OBSERVABILITY_COMPOSE) down");
     expect(prometheus).toContain("otel-collector:9464");
@@ -123,10 +123,19 @@ describe("observability operations assets", () => {
     expect(inspectScript).toContain("GRAFANA_URL");
     expect(inspectScript).toContain("agent_gateway");
     expect(inspectScript).toContain("AgentGatewayElevatedHttp5xxRate");
-    expect(inspectScript).toContain("AgentGatewayElevatedProviderErrorRate");
-    expect(inspectScript).toContain("AgentGatewayHighProviderLatency");
+    expect(inspectScript).toContain("AgentGatewayProviderErrorRate");
+    expect(inspectScript).toContain("AgentGatewayProviderP95LatencyHigh");
     expect(inspectScript).toContain("agent-gateway-otel-collector");
     expect(inspectScript).toContain("agent-gateway-ops");
+    expect(smokeScript).toContain("trap 'finish \"$?\"' EXIT");
+    expect(smokeScript).toContain("compose down");
+    expect(smokeScript).toContain("compose ps");
+    expect(smokeScript).toContain('compose logs --tail="$LOG_TAIL"');
+    expect(smokeScript).toContain("gateway otel-collector prometheus grafana");
+    expect(smokeScript).toContain("wait_for_text");
+    expect(smokeScript).toContain("OBSERVABILITY_SMOKE_WAIT_ATTEMPTS");
+    expect(smokeScript).toContain("docs/observability/local-demo/generate-traffic.sh");
+    expect(smokeScript).toContain("docs/observability/local-demo/inspect.sh");
   });
 
   it("documents Makefile helper targets for the local observability smoke workflow", () => {
@@ -146,6 +155,9 @@ describe("observability operations assets", () => {
     ]) {
       expect(docs).toContain(target);
     }
+    expect(docs).toContain("always tears the stack down");
+    expect(docs).toContain("prints compose status");
+    expect(docs).toContain("waits for metric export");
   });
 
   it("waits for local demo readiness before one-command smoke traffic", () => {
@@ -154,8 +166,14 @@ describe("observability operations assets", () => {
     expect(makefile).toContain("observability-ready:");
     expect(makefile).toContain("http://localhost:8080/readyz");
     expect(makefile).toContain("http://localhost:9090/-/ready");
-    expect(makefile).toContain(
-      "observability-smoke: observability-up observability-ready observability-traffic observability-inspect",
-    );
+    expect(makefile).toContain("observability-smoke:");
+    expect(makefile).toContain("docs/observability/local-demo/smoke.sh");
+
+    const smokeScript = readRepoFile("docs/observability/local-demo/smoke.sh");
+
+    expect(smokeScript).toContain("make --no-print-directory observability-ready");
+    expect(smokeScript).toContain("docs/observability/local-demo/generate-traffic.sh");
+    expect(smokeScript).toContain("wait for collector metric export");
+    expect(smokeScript).toContain("docs/observability/local-demo/inspect.sh");
   });
 });

@@ -2,6 +2,14 @@
 
 This demo starts the gateway with the shipped OpenTelemetry Collector, Prometheus alert rules, and Grafana dashboard provisioning. It is a local smoke path for the existing observability pack; it does not require live model-provider credentials.
 
+## One-Command Smoke
+
+```bash
+make observability-smoke
+```
+
+The smoke wrapper starts the stack, waits for readiness, generates representative traffic, waits for the collector metric export, runs the inspection checks, and tears the stack down on exit. If any step fails, it prints compose status, readiness probes, Grafana health, and recent service logs before cleanup.
+
 ## Start
 
 ```bash
@@ -41,7 +49,7 @@ make observability-inspect
 
 The inspection script checks gateway readiness, collector metric output, Prometheus rule loading, Prometheus target health for the collector scrape, Grafana health, and Grafana dashboard provisioning. Prometheus loads the starter rules from `docs/observability/alerts/prometheus-rules.yaml`. They are traffic-gated and may stay inactive during a short smoke run; the purpose of the demo is to prove the scrape path, rule loading, and dashboard wiring.
 
-Use `make observability-smoke` to start the stack, wait for readiness, generate sample traffic, and run the inspection checks as one local smoke command. Use `make observability-logs` to tail container logs while investigating startup or scrape issues.
+Use `make observability-logs` to tail container logs while investigating startup or scrape issues.
 
 ## Stop
 
