@@ -49,7 +49,7 @@ make observability-smoke
 
 The smoke wrapper starts the stack, waits for readiness, generates representative traffic, waits for the collector metric export, verifies gateway readiness, metric scrape output, Prometheus rule and target state, and Grafana dashboard provisioning, then tears the stack down. If a step fails, it prints compose status, readiness probes, Grafana health, and recent service logs before cleanup.
 
-The smoke path begins with `make observability-preflight`, which checks Docker and Docker Compose availability, validates the compose file, verifies that default local ports `3000`, `8080`, `9090`, and `9464` are free, and stops early with cleanup guidance if stale demo containers exist.
+The smoke path begins with `make observability-preflight`, which checks Docker and Docker Compose availability, validates the compose file, verifies that default local ports `3000`, `4317`, `4318`, `8080`, `9090`, and `9464` are free, and stops early with cleanup guidance if stale demo containers exist.
 
 To keep the stack running for manual inspection, start the gateway, collector, Prometheus, and Grafana together:
 
