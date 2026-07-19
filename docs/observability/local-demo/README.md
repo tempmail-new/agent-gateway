@@ -10,6 +10,12 @@ make observability-smoke
 
 The smoke wrapper starts the stack, waits for readiness, generates representative traffic, waits for the collector metric export, runs the inspection checks, and tears the stack down on exit. If any step fails, it prints compose status, readiness probes, Grafana health, and recent service logs before cleanup.
 
+Before startup, the wrapper runs the local demo preflight to verify Docker, Docker Compose, the compose file, default ports `3000`, `8080`, `9090`, and `9464`, and any stale demo containers from earlier runs. Run it directly when troubleshooting local setup:
+
+```bash
+make observability-preflight
+```
+
 ## Start
 
 ```bash

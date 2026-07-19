@@ -2,10 +2,13 @@
 set -eu
 
 COMPOSE_FILE="${OBSERVABILITY_COMPOSE_FILE:-compose.observability.yaml}"
+COMPOSE_PROJECT_NAME="${OBSERVABILITY_COMPOSE_PROJECT:-agent-gateway-observability-demo}"
 LOG_TAIL="${OBSERVABILITY_SMOKE_LOG_TAIL:-120}"
 WAIT_ATTEMPTS="${OBSERVABILITY_SMOKE_WAIT_ATTEMPTS:-45}"
 WAIT_SLEEP_SECONDS="${OBSERVABILITY_SMOKE_WAIT_SLEEP_SECONDS:-2}"
 current_step="startup"
+
+export COMPOSE_PROJECT_NAME
 
 compose() {
   docker compose -f "$COMPOSE_FILE" "$@"
@@ -70,6 +73,8 @@ run_step() {
   printf "\n==> %s\n" "$current_step"
   "$@"
 }
+
+run_step "run local demo preflight" docs/observability/local-demo/preflight.sh
 
 trap 'finish "$?"' EXIT
 
