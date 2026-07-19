@@ -21,7 +21,11 @@ require_text() {
   expected="$2"
   url="$3"
 
-  if fetch "$label" "$url" | grep -q "$expected"; then
+  if ! body="$(fetch "$label" "$url")"; then
+    return 1
+  fi
+
+  if printf "%s" "$body" | grep -q "$expected"; then
     printf "ok: %s\n" "$label"
     return 0
   fi
@@ -69,8 +73,8 @@ process.stdin.on("end", () => {
   if (
     body.status === "success" &&
     names.has("AgentGatewayElevatedHttp5xxRate") &&
-    names.has("AgentGatewayElevatedProviderErrorRate") &&
-    names.has("AgentGatewayHighProviderLatency")
+    names.has("AgentGatewayProviderErrorRate") &&
+    names.has("AgentGatewayProviderP95LatencyHigh")
   ) {
     process.exit(0);
   }

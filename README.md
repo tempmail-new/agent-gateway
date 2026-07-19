@@ -92,7 +92,7 @@ Metrics use the same OpenTelemetry bootstrap as traces. The first metric slice r
 
 See `docs/observability/README.md` for an operator pack with an OpenTelemetry Collector example, Prometheus/Grafana dashboard artifact, traffic-gated starter alert rules, runbook guidance, and a compose-based local demo path for these metrics.
 
-For a local end-to-end smoke run, use `make observability-smoke`. Individual helper targets are available for `observability-up`, `observability-ready`, `observability-traffic`, `observability-inspect`, `observability-logs`, and `observability-down`.
+For a local end-to-end smoke run, use `make observability-smoke`. It starts the demo stack, waits for readiness, generates sample traffic, waits for metric export, runs observability inspections, prints targeted diagnostics on failure, and always tears the stack down. Individual helper targets are available for `observability-up`, `observability-ready`, `observability-traffic`, `observability-inspect`, `observability-logs`, and `observability-down` when you want to keep services running for manual inspection.
 
 ## Development
 

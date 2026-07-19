@@ -41,7 +41,15 @@ When exported through the collector's Prometheus exporter, dots become underscor
 
 ## Local Demo
 
-Run the gateway, collector, Prometheus, and Grafana together:
+Run the full local smoke flow:
+
+```bash
+make observability-smoke
+```
+
+The smoke wrapper starts the stack, waits for readiness, generates representative traffic, waits for the collector metric export, verifies gateway readiness, metric scrape output, Prometheus rule and target state, and Grafana dashboard provisioning, then tears the stack down. If a step fails, it prints compose status, readiness probes, Grafana health, and recent service logs before cleanup.
+
+To keep the stack running for manual inspection, start the gateway, collector, Prometheus, and Grafana together:
 
 ```bash
 make observability-up
@@ -60,7 +68,7 @@ Then inspect:
 - Prometheus rules and targets: `http://localhost:9090`
 - Grafana dashboard: `http://localhost:3000/d/agent-gateway-ops/agent-gateway`
 
-Use `make observability-smoke` to start the stack, wait for readiness, generate traffic, and verify gateway readiness, metric scrape output, Prometheus rule and target state, and Grafana dashboard provisioning in one command. Stop the stack with `make observability-down`.
+Stop the stack with `make observability-down`.
 
 See `docs/observability/local-demo/README.md` for the full smoke workflow.
 

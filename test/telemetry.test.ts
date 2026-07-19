@@ -1,8 +1,14 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { loadConfig } from "../src/config.js";
 import { createTelemetry } from "../src/observability/tracing.js";
 import type { TelemetryDependencies } from "../src/observability/tracing.js";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 describe("telemetry configuration", () => {
   it("keeps OTLP export disabled when no collector endpoint is configured", () => {
@@ -216,5 +222,13 @@ describe("telemetry lifecycle", () => {
     );
     expect(sdk.start).toHaveBeenCalledOnce();
     expect(sdk.shutdown).toHaveBeenCalledOnce();
+  });
+
+  it("starts telemetry before the server creates metric instruments", () => {
+    const serverSource = readFileSync(path.join(repoRoot, "src/server.ts"), "utf8");
+
+    expect(serverSource.indexOf("telemetry.start();")).toBeLessThan(
+      serverSource.indexOf("buildApp(config)"),
+    );
   });
 });

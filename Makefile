@@ -47,4 +47,5 @@ observability-logs:
 observability-down:
 	$(OBSERVABILITY_COMPOSE) down
 
-observability-smoke: observability-up observability-ready observability-traffic observability-inspect
+observability-smoke:
+	docs/observability/local-demo/smoke.sh

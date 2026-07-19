@@ -4,10 +4,10 @@ import { createTelemetry } from "./observability/tracing.js";
 
 const config = loadConfig();
 const telemetry = createTelemetry(config);
+telemetry.start();
 const app = buildApp(config);
 
 try {
-  telemetry.start();
   app.log.info({ telemetryEnabled: telemetry.enabled }, "telemetry_initialized");
   await app.listen({ host: "0.0.0.0", port: config.port });
 } catch (error) {
