@@ -82,6 +82,7 @@ describe("observability operations assets", () => {
     );
     const trafficScript = readRepoFile("docs/observability/local-demo/generate-traffic.sh");
     const inspectScript = readRepoFile("docs/observability/local-demo/inspect.sh");
+    const preflightScript = readRepoFile("docs/observability/local-demo/preflight.sh");
     const smokeScript = readRepoFile("docs/observability/local-demo/smoke.sh");
 
     expect(compose).toContain("OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318");
@@ -95,11 +96,14 @@ describe("observability operations assets", () => {
       "./docs/observability/dashboards/grafana-agent-gateway.json:/var/lib/grafana/dashboards/agent-gateway.json:ro",
     );
     expect(makefile).toContain(
-      ".PHONY: build fmt fmt-check lint observability-down observability-inspect observability-logs observability-ready observability-smoke observability-traffic observability-up test validate",
+      ".PHONY: build fmt fmt-check lint observability-down observability-inspect observability-logs observability-preflight observability-ready observability-smoke observability-traffic observability-up test validate",
     );
+    expect(makefile).toContain("OBSERVABILITY_COMPOSE_PROJECT ?= agent-gateway-observability-demo");
     expect(makefile).toContain(
-      "OBSERVABILITY_COMPOSE := docker compose -f compose.observability.yaml",
+      "OBSERVABILITY_COMPOSE := COMPOSE_PROJECT_NAME=$(OBSERVABILITY_COMPOSE_PROJECT) docker compose -f compose.observability.yaml",
     );
+    expect(makefile).toContain("observability-preflight:");
+    expect(makefile).toContain("docs/observability/local-demo/preflight.sh");
     expect(makefile).toContain("observability-up:");
     expect(makefile).toContain("$(OBSERVABILITY_COMPOSE) up --build -d");
     expect(makefile).toContain("observability-traffic:");
@@ -127,7 +131,15 @@ describe("observability operations assets", () => {
     expect(inspectScript).toContain("AgentGatewayProviderP95LatencyHigh");
     expect(inspectScript).toContain("agent-gateway-otel-collector");
     expect(inspectScript).toContain("agent-gateway-ops");
+    expect(preflightScript).toContain("docker info");
+    expect(preflightScript).toContain("docker compose version");
+    expect(preflightScript).toContain('docker compose -f "$COMPOSE_FILE" config');
+    expect(preflightScript).toContain("OBSERVABILITY_DEMO_PORTS:-3000 8080 9090 9464");
+    expect(preflightScript).toContain("port %s is already in use");
+    expect(preflightScript).toContain("make observability-down");
+    expect(preflightScript).toContain("agent-gateway-observability-demo");
     expect(smokeScript).toContain("trap 'finish \"$?\"' EXIT");
+    expect(smokeScript).toContain("docs/observability/local-demo/preflight.sh");
     expect(smokeScript).toContain("compose down");
     expect(smokeScript).toContain("compose ps");
     expect(smokeScript).toContain('compose logs --tail="$LOG_TAIL"');
@@ -147,6 +159,7 @@ describe("observability operations assets", () => {
 
     for (const target of [
       "make observability-up",
+      "make observability-preflight",
       "make observability-ready",
       "make observability-traffic",
       "make observability-inspect",
@@ -158,6 +171,7 @@ describe("observability operations assets", () => {
     expect(docs).toContain("always tears the stack down");
     expect(docs).toContain("prints compose status");
     expect(docs).toContain("waits for metric export");
+    expect(docs).toContain("default local ports `3000`, `8080`, `9090`, and `9464`");
   });
 
   it("waits for local demo readiness before one-command smoke traffic", () => {
@@ -171,6 +185,8 @@ describe("observability operations assets", () => {
 
     const smokeScript = readRepoFile("docs/observability/local-demo/smoke.sh");
 
+    expect(smokeScript).toContain("run local demo preflight");
+    expect(smokeScript).toContain("docs/observability/local-demo/preflight.sh");
     expect(smokeScript).toContain("make --no-print-directory observability-ready");
     expect(smokeScript).toContain("docs/observability/local-demo/generate-traffic.sh");
     expect(smokeScript).toContain("wait for collector metric export");
