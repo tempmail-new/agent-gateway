@@ -11,6 +11,7 @@ Agent Gateway is a small, production-shaped TypeScript service for authenticated
 - Config-driven input token budget guard before provider execution.
 - Env-gated transient retry control for OpenAI-compatible provider calls.
 - File-backed secret loading for deployment-mounted gateway and provider API keys.
+- A checked-in deployment smoke example for container runs with mounted secret files, default-provider startup validation, and readiness/healthcheck verification.
 - OpenTelemetry traces and metrics can be exported to an OTLP HTTP collector when configured, with structured logs around provider execution that include upstream status, attempt count, retry count, and normalized error code fields without prompts or secrets.
 - Gateway metrics cover HTTP request count/duration and provider call count/duration with bounded operational attributes.
 - Operator-facing observability assets under `docs/observability` cover collector wiring, a Grafana dashboard import, starter Prometheus alerts with traffic gates, and a runbook for tuning the shipped metrics.
@@ -91,6 +92,8 @@ When `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, or `OT
 Metrics use the same OpenTelemetry bootstrap as traces. The first metric slice records `agent_gateway.http.server.requests`, `agent_gateway.http.server.duration`, `agent_gateway.provider.calls`, and `agent_gateway.provider.duration`. HTTP metrics include method, route, and status code. Provider metrics include provider, outcome, and normalized error code.
 
 See `docs/observability/README.md` for an operator pack with an OpenTelemetry Collector example, Prometheus/Grafana dashboard artifact, traffic-gated starter alert rules, runbook guidance, and a compose-based local demo path for these metrics.
+
+For a production-shaped container smoke path, use `make deployment-smoke`. It builds the image, starts the gateway from `compose.deployment-example.yaml` with Docker-mounted secret files, verifies `AGENT_GATEWAY_DEFAULT_PROVIDER=echo` through `/readyz` at `http://localhost:18080/readyz`, waits for the container healthcheck, sends one authenticated echo request, and proves startup validation rejects an unavailable default provider before the healthy run. See `docs/deployment/README.md` for the deployment example.
 
 For a local end-to-end smoke run, use `make observability-smoke`. It first runs `make observability-preflight` to verify Docker, Docker Compose, default demo port availability (`3000`, `4317`, `4318`, `8080`, `9090`, and `9464`), and stale demo containers; then it starts the demo stack, waits for readiness, generates sample traffic, waits for metric export, runs observability inspections, prints targeted diagnostics on failure, and always tears the stack down. Individual helper targets are available for `observability-preflight`, `observability-up`, `observability-ready`, `observability-traffic`, `observability-inspect`, `observability-logs`, and `observability-down` when you want to keep services running for manual inspection.
 

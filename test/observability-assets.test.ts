@@ -108,7 +108,7 @@ describe("observability operations assets", () => {
       "./docs/observability/dashboards/grafana-agent-gateway.json:/var/lib/grafana/dashboards/agent-gateway.json:ro",
     );
     expect(makefile).toContain(
-      ".PHONY: build fmt fmt-check lint observability-down observability-inspect observability-logs observability-preflight observability-ready observability-smoke observability-traffic observability-up test validate",
+      ".PHONY: build deployment-smoke fmt fmt-check lint observability-down observability-inspect observability-logs observability-preflight observability-ready observability-smoke observability-traffic observability-up test validate",
     );
     expect(makefile).toContain("OBSERVABILITY_COMPOSE_PROJECT ?= agent-gateway-observability-demo");
     expect(makefile).toContain(
