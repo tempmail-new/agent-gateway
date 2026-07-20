@@ -10,6 +10,18 @@ function readRepoFile(relativePath: string): string {
   return readFileSync(path.join(repoRoot, relativePath), "utf8");
 }
 
+function publishedComposePorts(compose: string): string[] {
+  return Array.from(compose.matchAll(/-\s+"(\d+):\d+"/g), (match) => match[1]).sort();
+}
+
+function preflightDefaultPorts(preflightScript: string): string[] {
+  const match = preflightScript.match(/OBSERVABILITY_DEMO_PORTS:-(?<ports>[^}]+)}/);
+
+  expect(match?.groups?.ports).toBeDefined();
+
+  return match?.groups?.ports.split(/\s+/).sort() ?? [];
+}
+
 const metricNames = [
   "agent_gateway.http.server.requests",
   "agent_gateway.http.server.duration",
@@ -134,10 +146,11 @@ describe("observability operations assets", () => {
     expect(preflightScript).toContain("docker info");
     expect(preflightScript).toContain("docker compose version");
     expect(preflightScript).toContain('docker compose -f "$COMPOSE_FILE" config');
-    expect(preflightScript).toContain("OBSERVABILITY_DEMO_PORTS:-3000 8080 9090 9464");
+    expect(preflightScript).toContain("OBSERVABILITY_DEMO_PORTS:-3000 4317 4318 8080 9090 9464");
     expect(preflightScript).toContain("port %s is already in use");
     expect(preflightScript).toContain("make observability-down");
     expect(preflightScript).toContain("agent-gateway-observability-demo");
+    expect(preflightDefaultPorts(preflightScript)).toEqual(publishedComposePorts(compose));
     expect(smokeScript).toContain("trap 'finish \"$?\"' EXIT");
     expect(smokeScript).toContain("docs/observability/local-demo/preflight.sh");
     expect(smokeScript).toContain("compose down");
@@ -171,7 +184,9 @@ describe("observability operations assets", () => {
     expect(docs).toContain("always tears the stack down");
     expect(docs).toContain("prints compose status");
     expect(docs).toContain("waits for metric export");
-    expect(docs).toContain("default local ports `3000`, `8080`, `9090`, and `9464`");
+    expect(docs).toContain(
+      "default local ports `3000`, `4317`, `4318`, `8080`, `9090`, and `9464`",
+    );
   });
 
   it("waits for local demo readiness before one-command smoke traffic", () => {
