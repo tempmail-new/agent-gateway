@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "benchmark:text-image": "tsx src/benchmarks/text-image-benchmark.ts",
     "dev": "tsx watch src/server.ts",
     "fmt": "prettier --write .",
     "fmt:check": "prettier --check .",
