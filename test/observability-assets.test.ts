@@ -107,9 +107,15 @@ describe("observability operations assets", () => {
     expect(compose).toContain(
       "./docs/observability/dashboards/grafana-agent-gateway.json:/var/lib/grafana/dashboards/agent-gateway.json:ro",
     );
-    expect(makefile).toContain(
-      ".PHONY: build deployment-smoke fmt fmt-check lint observability-down observability-inspect observability-logs observability-preflight observability-ready observability-smoke observability-traffic observability-up test validate",
-    );
+    const phonyLine = makefile.split("\n").find((line) => line.startsWith(".PHONY:"));
+    expect(phonyLine).toContain("observability-preflight");
+    expect(phonyLine).toContain("observability-up");
+    expect(phonyLine).toContain("observability-ready");
+    expect(phonyLine).toContain("observability-traffic");
+    expect(phonyLine).toContain("observability-inspect");
+    expect(phonyLine).toContain("observability-logs");
+    expect(phonyLine).toContain("observability-down");
+    expect(phonyLine).toContain("observability-smoke");
     expect(makefile).toContain("OBSERVABILITY_COMPOSE_PROJECT ?= agent-gateway-observability-demo");
     expect(makefile).toContain(
       "OBSERVABILITY_COMPOSE := COMPOSE_PROJECT_NAME=$(OBSERVABILITY_COMPOSE_PROJECT) docker compose -f compose.observability.yaml",
