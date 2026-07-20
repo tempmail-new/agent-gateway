@@ -14,6 +14,20 @@ The smoke script builds the gateway image, proves startup validation rejects an 
 
 The compose file is `compose.deployment-example.yaml`. It keeps the container's internal port at `8080` and publishes it to local port `18080` so it can run separately from the observability demo.
 
+For a manual operator run, use the lifecycle targets:
+
+```bash
+make deployment-up
+make deployment-ready
+make deployment-request
+make deployment-logs
+make deployment-down
+```
+
+`deployment-up` validates the compose file and starts the gateway with a build. `deployment-ready` waits for `/readyz` and the Docker healthcheck. `deployment-request` sends one authenticated echo request with the example token. `deployment-logs` tails gateway logs, and `deployment-down` removes the example stack.
+
+The lifecycle targets use the same defaults as the smoke path. Override `DEPLOYMENT_EXAMPLE_COMPOSE_PROJECT`, `DEPLOYMENT_EXAMPLE_GATEWAY_URL`, `AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN`, `DEPLOYMENT_EXAMPLE_WAIT_ATTEMPTS`, or `DEPLOYMENT_EXAMPLE_WAIT_SECONDS` when you need to run against a different local port or token.
+
 ## Secret Mounts
 
 The example uses Docker Compose secrets:

@@ -32,16 +32,37 @@ describe("deployment example assets", () => {
   it("documents and scripts the deployment smoke path", () => {
     const docs = [readRepoFile("README.md"), readRepoFile("docs/deployment/README.md")].join("\n");
     const makefile = readRepoFile("Makefile");
+    const lifecycleScript = readRepoFile("docs/deployment/container-example/lifecycle.sh");
     const smokeScript = readRepoFile("docs/deployment/container-example/smoke.sh");
     const dockerfile = readRepoFile("Dockerfile");
 
     expect(docs).toContain("make deployment-smoke");
+    expect(docs).toContain("make deployment-up");
+    expect(docs).toContain("make deployment-ready");
+    expect(docs).toContain("make deployment-request");
+    expect(docs).toContain("make deployment-logs");
+    expect(docs).toContain("make deployment-down");
     expect(docs).toContain("mounted secret files");
     expect(docs).toContain("AGENT_GATEWAY_DEFAULT_PROVIDER=echo");
     expect(docs).toContain("http://localhost:18080/readyz");
     expect(docs).toContain("Startup fails before listening");
     expect(makefile).toContain("deployment-smoke:");
     expect(makefile).toContain("docs/deployment/container-example/smoke.sh");
+    expect(makefile).toContain("deployment-up:");
+    expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh up");
+    expect(makefile).toContain("deployment-ready:");
+    expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh ready");
+    expect(makefile).toContain("deployment-request:");
+    expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh request");
+    expect(makefile).toContain("deployment-logs:");
+    expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh logs");
+    expect(makefile).toContain("deployment-down:");
+    expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh down");
+    expect(lifecycleScript).toContain("wait_for_readyz");
+    expect(lifecycleScript).toContain("wait_for_container_health");
+    expect(lifecycleScript).toContain("/v1/requests");
+    expect(lifecycleScript).toContain("compose logs -f");
+    expect(lifecycleScript).toContain("compose down --remove-orphans");
     expect(smokeScript).toContain("verify_default_provider_validation");
     expect(smokeScript).toContain("Unknown provider 'missing'");
     expect(smokeScript).toContain("wait_for_readyz");
