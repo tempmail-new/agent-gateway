@@ -1,10 +1,13 @@
 OBSERVABILITY_COMPOSE_PROJECT ?= agent-gateway-observability-demo
 OBSERVABILITY_COMPOSE := COMPOSE_PROJECT_NAME=$(OBSERVABILITY_COMPOSE_PROJECT) docker compose -f compose.observability.yaml
 
-.PHONY: build deployment-down deployment-logs deployment-ready deployment-request deployment-smoke deployment-up fmt fmt-check lint observability-down observability-inspect observability-logs observability-preflight observability-ready observability-smoke observability-traffic observability-up test validate
+.PHONY: benchmark-text-image build deployment-down deployment-logs deployment-ready deployment-request deployment-smoke deployment-up fmt fmt-check lint observability-down observability-inspect observability-logs observability-preflight observability-ready observability-smoke observability-traffic observability-up test validate
 
 build:
 	npm run build
+
+benchmark-text-image:
+	npm run benchmark:text-image
 
 fmt:
 	npm run fmt

@@ -97,6 +97,8 @@ For a production-shaped container smoke path, use `make deployment-smoke`. It bu
 
 For a local end-to-end smoke run, use `make observability-smoke`. It first runs `make observability-preflight` to verify Docker, Docker Compose, default demo port availability (`3000`, `4317`, `4318`, `8080`, `9090`, and `9464`), and stale demo containers; then it starts the demo stack, waits for readiness, generates sample traffic, waits for metric export, runs observability inspections, prints targeted diagnostics on failure, and always tears the stack down. Individual helper targets are available for `observability-preflight`, `observability-up`, `observability-ready`, `observability-traffic`, `observability-inspect`, `observability-logs`, and `observability-down` when you want to keep services running for manual inspection.
 
+For the bounded text-versus-image compression spike, use `make benchmark-text-image`. The recorded result in `docs/benchmarks/text-vs-image.md` shows the image data URL path costs more estimated input tokens than native text for both `100`-word and `1000`-word samples, so the gateway should not build a text-as-image compression path under its current text-only request contract.
+
 ## Development
 
 ```bash
@@ -113,3 +115,5 @@ make validate
 ## Roadmap
 
 The production slice is intentionally narrow. Future observability work should respond to concrete gaps from gateway usage before expanding the metric taxonomy.
+
+The text-as-image compression idea has been benchmarked as a research spike. Native text remains the better default for the current gateway API; revisit only with provider-native multimodal inputs, real provider token accounting, latency, and answer-quality checks.
