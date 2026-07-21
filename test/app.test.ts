@@ -366,6 +366,36 @@ describe("agent gateway app", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("preserves Fastify's default oversized-body response when the body limit is unset", async () => {
+    const app = buildApp(
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        NODE_ENV: "test",
+        OTEL_SERVICE_NAME: "agent-gateway-test",
+      }),
+    );
+    const response = await app.inject({
+      headers: {
+        authorization: "Bearer test-token",
+        "content-type": "application/json",
+      },
+      method: "POST",
+      payload: JSON.stringify({
+        input: "x".repeat(1024 * 1024),
+        model: "local-test",
+      }),
+      url: "/v1/requests",
+    });
+
+    expect(response.statusCode).toBe(413);
+    expect(response.json()).toEqual({
+      code: "FST_ERR_CTP_BODY_TOO_LARGE",
+      error: "Payload Too Large",
+      message: "Request body is too large",
+      statusCode: 413,
+    });
+  });
+
   it("rejects oversized inputs before provider execution", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

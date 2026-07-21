@@ -257,12 +257,17 @@ export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
   );
 
   app.setErrorHandler(async (error, _request, reply) => {
-    if (isRequestBodyTooLargeError(error)) {
+    if (isConfiguredRequestBodyTooLargeError(config, error)) {
       await reply.code(413).send({
         error: "request_body_too_large",
         limit: config.requestSize.maxBodyBytes,
         reason: "request_body_bytes_exceeded",
       });
+      return;
+    }
+
+    if (isRequestBodyTooLargeError(error)) {
+      await reply.send(error);
       return;
     }
 
@@ -300,6 +305,10 @@ function isRequestBodyTooLargeError(error: unknown): boolean {
     "code" in error &&
     error.code === "FST_ERR_CTP_BODY_TOO_LARGE"
   );
+}
+
+function isConfiguredRequestBodyTooLargeError(config: GatewayConfig, error: unknown): boolean {
+  return config.requestSize.maxBodyBytes !== undefined && isRequestBodyTooLargeError(error);
 }
 
 function getNumericDetail(error: ProviderError, key: string): number | undefined {
