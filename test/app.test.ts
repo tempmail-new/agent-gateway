@@ -189,6 +189,40 @@ describe("agent gateway app", () => {
     expect(typeof metrics.providerCalls[0]?.durationMs).toBe("number");
   });
 
+  it("rejects unknown top-level request fields before provider execution", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const app = buildApp(
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        AGENT_GATEWAY_OPENAI_API_KEY: "provider-token",
+        NODE_ENV: "test",
+        OTEL_SERVICE_NAME: "agent-gateway-test",
+      }),
+    );
+    const response = await app.inject({
+      headers: { authorization: "Bearer test-token" },
+      method: "POST",
+      payload: {
+        input: "hello",
+        model: "gpt-compatible",
+        provider: "openai-compatible",
+        temperature: 0.9,
+      },
+      url: "/v1/requests",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "invalid_request",
+      reason: "request_schema_invalid",
+    });
+    expect(response.json().details.formErrors).toContain(
+      "Unrecognized key(s) in object: 'temperature'",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("returns a typed error for unknown providers", async () => {
     const app = buildApp(config);
     const response = await app.inject({
