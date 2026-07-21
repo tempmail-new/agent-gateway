@@ -11,6 +11,7 @@ import type { TraceOperationContext } from "./observability/tracing.js";
 import { withGatewayTrace } from "./observability/tracing.js";
 import { evaluateRequestBudget } from "./policy/request-budget.js";
 import { evaluateRequestPolicy } from "./policy/request-policy.js";
+import { evaluateRequestSize } from "./policy/request-size.js";
 import {
   EchoProvider,
   OpenAICompatibleProvider,
@@ -34,6 +35,9 @@ export interface BuildAppOptions {
 
 export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
   const app = Fastify({
+    ...(config.requestSize.maxBodyBytes !== undefined
+      ? { bodyLimit: config.requestSize.maxBodyBytes }
+      : {}),
     logger: options.logger ?? true,
     requestIdHeader: "x-request-id",
   });
@@ -87,6 +91,17 @@ export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
 
       const requestId = request.id || randomUUID();
       const gatewayRequest: GatewayRequest = parsedBody.data;
+      const sizeDecision = evaluateRequestSize(config.requestSize, gatewayRequest.input);
+
+      if (sizeDecision.type === "rejected") {
+        return reply.code(413).send({
+          error: "input_too_large",
+          inputBytes: sizeDecision.inputBytes,
+          limit: sizeDecision.limit,
+          reason: sizeDecision.reason,
+        }) as never;
+      }
+
       const context: RequestContext = {
         apiKeyId: request.apiKeyId ?? "unknown",
         requestId,
@@ -242,6 +257,20 @@ export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
   );
 
   app.setErrorHandler(async (error, _request, reply) => {
+    if (isConfiguredRequestBodyTooLargeError(config, error)) {
+      await reply.code(413).send({
+        error: "request_body_too_large",
+        limit: config.requestSize.maxBodyBytes,
+        reason: "request_body_bytes_exceeded",
+      });
+      return;
+    }
+
+    if (isRequestBodyTooLargeError(error)) {
+      await reply.send(error);
+      return;
+    }
+
     if (error instanceof UnknownProviderError) {
       await reply.code(400).send({
         error: "unknown_provider",
@@ -267,6 +296,19 @@ export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
   });
 
   return app;
+}
+
+function isRequestBodyTooLargeError(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "FST_ERR_CTP_BODY_TOO_LARGE"
+  );
+}
+
+function isConfiguredRequestBodyTooLargeError(config: GatewayConfig, error: unknown): boolean {
+  return config.requestSize.maxBodyBytes !== undefined && isRequestBodyTooLargeError(error);
 }
 
 function getNumericDetail(error: ProviderError, key: string): number | undefined {

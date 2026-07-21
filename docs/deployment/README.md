@@ -10,7 +10,7 @@ Run the production-shaped container example:
 make deployment-smoke
 ```
 
-The smoke script builds the gateway image, proves startup validation rejects an unavailable default provider, starts the service with Docker-mounted secret files, waits for `/readyz`, checks the container health status, sends one authenticated echo request, and tears the container down.
+The smoke script builds the gateway image, proves startup validation rejects an unavailable default provider, starts the service with Docker-mounted secret files and request-size guardrails, waits for `/readyz`, checks the container health status, sends one authenticated echo request, and tears the container down.
 
 The compose file is `compose.deployment-example.yaml`. It keeps the container's internal port at `8080` and publishes it to local port `18080` so it can run separately from the observability demo.
 
@@ -40,6 +40,8 @@ The example uses Docker Compose secrets:
 The checked-in files under `docs/deployment/container-example/secrets/` contain local example values only. Replace them with real secret material in an actual deployment and keep inline `AGENT_GATEWAY_API_KEYS` or `AGENT_GATEWAY_OPENAI_API_KEY` unset when the matching `*_FILE` variable is used.
 
 The OpenAI-compatible secret is mounted to prove provider secret loading and provider registration without sending live provider traffic. The smoke request uses the local `echo` provider through `AGENT_GATEWAY_DEFAULT_PROVIDER=echo`.
+
+The example also sets `AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES=8192`, `AGENT_GATEWAY_MAX_INPUT_BYTES=4096`, and `AGENT_GATEWAY_MAX_INPUT_TOKENS=32` to show body-size, input-size, and model-cost guardrails as separate deployment controls. Tune these values for expected prompt and metadata shape before using the example outside local smoke checks.
 
 ## Readiness
 

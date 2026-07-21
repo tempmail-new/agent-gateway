@@ -7,6 +7,7 @@ export interface GatewayConfig {
   port: number;
   requestBudget: RequestBudgetConfig;
   requestPolicy: RequestPolicyConfig;
+  requestSize: RequestSizeConfig;
   serviceName: string;
   telemetry: TelemetryConfig;
 }
@@ -24,6 +25,11 @@ export interface RequestPolicyConfig {
 
 export interface RequestBudgetConfig {
   maxInputTokens?: number;
+}
+
+export interface RequestSizeConfig {
+  maxBodyBytes?: number;
+  maxInputBytes?: number;
 }
 
 export interface TelemetryConfig {
@@ -69,6 +75,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     },
     requestPolicy: {
       allowedProviderModels: parseProviderModelRules(env.AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS),
+    },
+    requestSize: {
+      maxBodyBytes: parseOptionalPositiveInteger(
+        env.AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES,
+        "AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES",
+      ),
+      maxInputBytes: parseOptionalPositiveInteger(
+        env.AGENT_GATEWAY_MAX_INPUT_BYTES,
+        "AGENT_GATEWAY_MAX_INPUT_BYTES",
+      ),
     },
     serviceName: env.OTEL_SERVICE_NAME ?? "agent-gateway",
     telemetry: loadTelemetryConfig(env),

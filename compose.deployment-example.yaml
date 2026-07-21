@@ -5,7 +5,9 @@ services:
       AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS: echo:local-test
       AGENT_GATEWAY_API_KEYS_FILE: /run/secrets/agent_gateway_api_keys
       AGENT_GATEWAY_DEFAULT_PROVIDER: echo
+      AGENT_GATEWAY_MAX_INPUT_BYTES: "4096"
       AGENT_GATEWAY_MAX_INPUT_TOKENS: "32"
+      AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES: "8192"
       AGENT_GATEWAY_OPENAI_API_KEY_FILE: /run/secrets/agent_gateway_openai_api_key
       NODE_ENV: production
       OTEL_SERVICE_NAME: agent-gateway-deployment-example

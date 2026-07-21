@@ -19,6 +19,8 @@ describe("deployment example assets", () => {
       "AGENT_GATEWAY_OPENAI_API_KEY_FILE: /run/secrets/agent_gateway_openai_api_key",
     );
     expect(compose).toContain("AGENT_GATEWAY_DEFAULT_PROVIDER: echo");
+    expect(compose).toContain('AGENT_GATEWAY_MAX_INPUT_BYTES: "4096"');
+    expect(compose).toContain('AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES: "8192"');
     expect(compose).toContain("NODE_ENV: production");
     expect(compose).toContain('"18080:8080"');
     expect(compose).toContain(
@@ -43,7 +45,9 @@ describe("deployment example assets", () => {
     expect(docs).toContain("make deployment-logs");
     expect(docs).toContain("make deployment-down");
     expect(docs).toContain("mounted secret files");
+    expect(docs).toContain("request-size guardrails");
     expect(docs).toContain("AGENT_GATEWAY_DEFAULT_PROVIDER=echo");
+    expect(docs).toContain("AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES=8192");
     expect(docs).toContain("http://localhost:18080/readyz");
     expect(docs).toContain("Startup fails before listening");
     expect(makefile).toContain("deployment-smoke:");
