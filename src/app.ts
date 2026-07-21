@@ -23,10 +23,10 @@ import type { GatewayRequest, GatewayResponse, RequestContext } from "./types.js
 
 const gatewayRequestSchema = z
   .object({
-    input: z.string().min(1),
+    input: nonBlankStringSchema("input"),
     metadata: z.record(z.union([z.boolean(), z.number(), z.string()])).optional(),
-    model: z.string().min(1),
-    provider: z.string().min(1).optional(),
+    model: nonBlankStringSchema("model"),
+    provider: nonBlankStringSchema("provider").optional(),
   })
   .strict();
 
@@ -308,6 +308,15 @@ function isRequestBodyTooLargeError(error: unknown): boolean {
     "code" in error &&
     error.code === "FST_ERR_CTP_BODY_TOO_LARGE"
   );
+}
+
+function nonBlankStringSchema(fieldName: string) {
+  return z
+    .string()
+    .min(1)
+    .refine((value) => value.trim().length > 0, {
+      message: `${fieldName} cannot be blank`,
+    });
 }
 
 function isConfiguredRequestBodyTooLargeError(config: GatewayConfig, error: unknown): boolean {
