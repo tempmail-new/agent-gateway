@@ -8,6 +8,7 @@ Agent Gateway is a small, production-shaped TypeScript service for authenticated
 - Bearer-token authentication for gateway requests.
 - Provider registry with an executable local `echo` provider and optional OpenAI-compatible provider.
 - Config-driven provider/model allow policy before provider execution.
+- Config-driven request body and input byte guardrails before provider execution.
 - Config-driven input token budget guard before provider execution.
 - Env-gated transient retry control for OpenAI-compatible provider calls.
 - File-backed secret loading for deployment-mounted gateway and provider API keys.
@@ -60,7 +61,9 @@ Response:
 | `AGENT_GATEWAY_API_KEYS`                | `dev-token` outside production | Comma-separated bearer tokens allowed to call `/v1/requests`. Required in production.                           |
 | `AGENT_GATEWAY_API_KEYS_FILE`           | unset                          | Path to a readable file containing `AGENT_GATEWAY_API_KEYS`. Cannot be combined with the inline variable.       |
 | `AGENT_GATEWAY_DEFAULT_PROVIDER`        | `echo`                         | Provider selected when a request omits `provider`.                                                              |
+| `AGENT_GATEWAY_MAX_INPUT_BYTES`         | unset                          | Optional positive integer byte limit for parsed request `input`. Oversized inputs are rejected early.           |
 | `AGENT_GATEWAY_MAX_INPUT_TOKENS`        | unset                          | Optional positive integer input-token budget. Over-budget requests are rejected early.                          |
+| `AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES`  | unset                          | Optional positive integer byte limit for incoming JSON request bodies. Oversized bodies are rejected early.     |
 | `AGENT_GATEWAY_OPENAI_API_KEY`          | unset                          | Enables the `openai-compatible` provider when set.                                                              |
 | `AGENT_GATEWAY_OPENAI_API_KEY_FILE`     | unset                          | Path to a readable file containing `AGENT_GATEWAY_OPENAI_API_KEY`. Cannot be combined with the inline variable. |
 | `AGENT_GATEWAY_OPENAI_BASE_URL`         | `https://api.openai.com/v1`    | Base URL for an OpenAI-compatible Chat Completions API.                                                         |
@@ -84,6 +87,8 @@ Use the `*_FILE` secret variables when mounting secrets from an orchestrator. Fi
 Set `AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS` above `1` to retry transient OpenAI-compatible failures. Retries are limited to request failures, timeouts, and clearly retryable upstream statuses: `408`, `409`, `425`, `429`, `500`, `502`, `503`, and `504`. Non-transient upstream responses and malformed successful responses are not retried. Provider-call traces and logs include attempt and retry counts.
 
 When `AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS` is set, requests are rejected with `policy_rejected` before provider execution unless the resolved provider and requested model match one of the configured rules. Example: `echo:local-test,openai-compatible:gpt-4o-mini,openai-compatible:*`.
+
+When `AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES` is set, Fastify rejects oversized JSON bodies with `request_body_too_large` before the route handler runs. When `AGENT_GATEWAY_MAX_INPUT_BYTES` is set, the gateway measures the parsed `input` as UTF-8 bytes and rejects oversized inputs with `input_too_large` before provider execution. These byte limits bound payload and data-URL abuse; `AGENT_GATEWAY_MAX_INPUT_TOKENS` remains the separate model-cost budget.
 
 When `AGENT_GATEWAY_MAX_INPUT_TOKENS` is set, the gateway estimates input tokens locally and rejects requests with `budget_exceeded` before provider execution when the estimate is above the configured limit.
 

@@ -331,6 +331,102 @@ describe("agent gateway app", () => {
     });
   });
 
+  it("rejects oversized request bodies before provider execution", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const app = buildApp(
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES: "80",
+        AGENT_GATEWAY_OPENAI_API_KEY: "provider-token",
+        NODE_ENV: "test",
+        OTEL_SERVICE_NAME: "agent-gateway-test",
+      }),
+    );
+    const response = await app.inject({
+      headers: {
+        authorization: "Bearer test-token",
+        "content-type": "application/json",
+      },
+      method: "POST",
+      payload: JSON.stringify({
+        input: "x".repeat(120),
+        model: "gpt-compatible",
+        provider: "openai-compatible",
+      }),
+      url: "/v1/requests",
+    });
+
+    expect(response.statusCode).toBe(413);
+    expect(response.json()).toEqual({
+      error: "request_body_too_large",
+      limit: 80,
+      reason: "request_body_bytes_exceeded",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized inputs before provider execution", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const app = buildApp(
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        AGENT_GATEWAY_MAX_INPUT_BYTES: "5",
+        AGENT_GATEWAY_OPENAI_API_KEY: "provider-token",
+        NODE_ENV: "test",
+        OTEL_SERVICE_NAME: "agent-gateway-test",
+      }),
+    );
+    const response = await app.inject({
+      headers: { authorization: "Bearer test-token" },
+      method: "POST",
+      payload: {
+        input: "hello!",
+        model: "gpt-compatible",
+        provider: "openai-compatible",
+      },
+      url: "/v1/requests",
+    });
+
+    expect(response.statusCode).toBe(413);
+    expect(response.json()).toEqual({
+      error: "input_too_large",
+      inputBytes: 6,
+      limit: 5,
+      reason: "input_bytes_exceeded",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("measures configured input limits in bytes", async () => {
+    const app = buildApp(
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        AGENT_GATEWAY_MAX_INPUT_BYTES: "3",
+        NODE_ENV: "test",
+        OTEL_SERVICE_NAME: "agent-gateway-test",
+      }),
+    );
+    const response = await app.inject({
+      headers: { authorization: "Bearer test-token" },
+      method: "POST",
+      payload: {
+        input: "éé",
+        model: "local-test",
+      },
+      url: "/v1/requests",
+    });
+
+    expect(response.statusCode).toBe(413);
+    expect(response.json()).toEqual({
+      error: "input_too_large",
+      inputBytes: 4,
+      limit: 3,
+      reason: "input_bytes_exceeded",
+    });
+  });
+
   it("rejects invalid budget configuration", () => {
     expect(() =>
       loadConfig({
@@ -339,6 +435,24 @@ describe("agent gateway app", () => {
         NODE_ENV: "test",
       }),
     ).toThrow("AGENT_GATEWAY_MAX_INPUT_TOKENS must be a positive integer");
+  });
+
+  it("rejects invalid request size configuration", () => {
+    expect(() =>
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        AGENT_GATEWAY_MAX_INPUT_BYTES: "0",
+        NODE_ENV: "test",
+      }),
+    ).toThrow("AGENT_GATEWAY_MAX_INPUT_BYTES must be a positive integer");
+
+    expect(() =>
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES: "1.5",
+        NODE_ENV: "test",
+      }),
+    ).toThrow("AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES must be a positive integer");
   });
 
   it("rejects invalid OpenAI-compatible retry configuration", () => {
