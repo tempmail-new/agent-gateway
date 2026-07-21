@@ -7,6 +7,7 @@ Agent Gateway is a small, production-shaped TypeScript service for authenticated
 - Fastify API with `/healthz`, `/readyz`, and `POST /v1/requests`.
 - Bearer-token authentication for gateway requests.
 - Provider registry with an executable local `echo` provider and optional OpenAI-compatible provider.
+- Strict JSON request-shape validation for `POST /v1/requests`.
 - Config-driven provider/model allow policy before provider execution.
 - Config-driven request body and input byte guardrails before provider execution.
 - Config-driven input token budget guard before provider execution.
@@ -81,6 +82,8 @@ Response:
 `/healthz` returns a lightweight process health response. `/readyz` returns the configured service name, registered providers, and resolved default provider for deployment readiness checks. The container image uses `/readyz` for its Docker healthcheck.
 
 Set `provider` to `openai-compatible` on a request, or set `AGENT_GATEWAY_DEFAULT_PROVIDER=openai-compatible`, to route through the outbound Chat Completions adapter. The adapter requires `AGENT_GATEWAY_OPENAI_API_KEY` or `AGENT_GATEWAY_OPENAI_API_KEY_FILE` and returns normalized `provider_error` responses for upstream failures, malformed responses, request failures, and timeouts. Startup fails if the configured default provider is not registered.
+
+`POST /v1/requests` accepts only `input`, `metadata`, `model`, and `provider` as top-level fields. Unknown top-level fields are rejected with `invalid_request` and `reason: request_schema_invalid` before provider selection or outbound calls.
 
 Use the `*_FILE` secret variables when mounting secrets from an orchestrator. File contents are trimmed, must be non-empty, and cannot be combined with the matching inline secret variable.
 

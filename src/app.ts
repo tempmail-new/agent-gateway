@@ -21,12 +21,14 @@ import {
 } from "./providers/index.js";
 import type { GatewayRequest, GatewayResponse, RequestContext } from "./types.js";
 
-const gatewayRequestSchema = z.object({
-  input: z.string().min(1),
-  metadata: z.record(z.union([z.boolean(), z.number(), z.string()])).optional(),
-  model: z.string().min(1),
-  provider: z.string().min(1).optional(),
-});
+const gatewayRequestSchema = z
+  .object({
+    input: z.string().min(1),
+    metadata: z.record(z.union([z.boolean(), z.number(), z.string()])).optional(),
+    model: z.string().min(1),
+    provider: z.string().min(1).optional(),
+  })
+  .strict();
 
 export interface BuildAppOptions {
   logger?: FastifyServerOptions["logger"];
@@ -85,6 +87,7 @@ export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
       if (!parsedBody.success) {
         return reply.code(400).send({
           error: "invalid_request",
+          reason: "request_schema_invalid",
           details: parsedBody.error.flatten(),
         }) as never;
       }
