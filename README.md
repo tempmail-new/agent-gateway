@@ -56,28 +56,28 @@ Response:
 
 ## Configuration
 
-| Variable                                | Default                        | Purpose                                                                                                          |
-| --------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| `AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS` | unset                          | Optional comma-separated `provider:model` allow list. Entries are trimmed, non-blank, and support `*` wildcards. |
-| `AGENT_GATEWAY_API_KEYS`                | `dev-token` outside production | Comma-separated bearer tokens allowed to call `/v1/requests`. Required in production.                            |
-| `AGENT_GATEWAY_API_KEYS_FILE`           | unset                          | Path to a readable file containing `AGENT_GATEWAY_API_KEYS`. Cannot be combined with the inline variable.        |
-| `AGENT_GATEWAY_DEFAULT_PROVIDER`        | `echo`                         | Trimmed non-blank provider selected when a request omits `provider`.                                             |
-| `AGENT_GATEWAY_MAX_INPUT_BYTES`         | unset                          | Optional positive integer byte limit for parsed request `input`. Oversized inputs are rejected early.            |
-| `AGENT_GATEWAY_MAX_INPUT_TOKENS`        | unset                          | Optional positive integer input-token budget. Over-budget requests are rejected early.                           |
-| `AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES`  | unset                          | Optional positive integer byte limit for incoming JSON request bodies. Oversized bodies are rejected early.      |
-| `AGENT_GATEWAY_OPENAI_API_KEY`          | unset                          | Enables the `openai-compatible` provider when set.                                                               |
-| `AGENT_GATEWAY_OPENAI_API_KEY_FILE`     | unset                          | Path to a readable file containing `AGENT_GATEWAY_OPENAI_API_KEY`. Cannot be combined with the inline variable.  |
-| `AGENT_GATEWAY_OPENAI_BASE_URL`         | `https://api.openai.com/v1`    | Base URL for an OpenAI-compatible Chat Completions API.                                                          |
-| `AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS`     | `1`                            | Provider request attempts for retryable OpenAI-compatible failures. Range: `1` to `5`.                           |
-| `AGENT_GATEWAY_OPENAI_TIMEOUT_MS`       | `30000`                        | Outbound provider request timeout in milliseconds.                                                               |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`           | unset                          | Optional OTLP HTTP collector base URL. The gateway appends `/v1/traces` and `/v1/metrics`.                       |
-| `OTEL_EXPORTER_OTLP_HEADERS`            | unset                          | Optional comma-separated OTLP headers in `key=value` format.                                                     |
-| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`   | unset                          | Optional exact OTLP HTTP metrics endpoint. Takes precedence over the base endpoint for metrics.                  |
-| `OTEL_EXPORTER_OTLP_METRICS_HEADERS`    | unset                          | Optional metric-specific OTLP headers. Overrides generic header keys.                                            |
-| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`    | unset                          | Optional exact OTLP HTTP traces endpoint. Takes precedence over the base endpoint.                               |
-| `OTEL_EXPORTER_OTLP_TRACES_HEADERS`     | unset                          | Optional trace-specific OTLP headers. Overrides generic header keys.                                             |
-| `OTEL_SERVICE_NAME`                     | `agent-gateway`                | Service name used by OpenTelemetry API tracers.                                                                  |
-| `PORT`                                  | `8080`                         | HTTP listen port.                                                                                                |
+| Variable                                | Default                        | Purpose                                                                                                                                                 |
+| --------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS` | unset                          | Optional comma-separated `provider:model` allow list. Entries are trimmed, non-blank, support `*` wildcards, and concrete providers must be registered. |
+| `AGENT_GATEWAY_API_KEYS`                | `dev-token` outside production | Comma-separated bearer tokens allowed to call `/v1/requests`. Required in production.                                                                   |
+| `AGENT_GATEWAY_API_KEYS_FILE`           | unset                          | Path to a readable file containing `AGENT_GATEWAY_API_KEYS`. Cannot be combined with the inline variable.                                               |
+| `AGENT_GATEWAY_DEFAULT_PROVIDER`        | `echo`                         | Trimmed non-blank provider selected when a request omits `provider`.                                                                                    |
+| `AGENT_GATEWAY_MAX_INPUT_BYTES`         | unset                          | Optional positive integer byte limit for parsed request `input`. Oversized inputs are rejected early.                                                   |
+| `AGENT_GATEWAY_MAX_INPUT_TOKENS`        | unset                          | Optional positive integer input-token budget. Over-budget requests are rejected early.                                                                  |
+| `AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES`  | unset                          | Optional positive integer byte limit for incoming JSON request bodies. Oversized bodies are rejected early.                                             |
+| `AGENT_GATEWAY_OPENAI_API_KEY`          | unset                          | Enables the `openai-compatible` provider when set.                                                                                                      |
+| `AGENT_GATEWAY_OPENAI_API_KEY_FILE`     | unset                          | Path to a readable file containing `AGENT_GATEWAY_OPENAI_API_KEY`. Cannot be combined with the inline variable.                                         |
+| `AGENT_GATEWAY_OPENAI_BASE_URL`         | `https://api.openai.com/v1`    | Base URL for an OpenAI-compatible Chat Completions API.                                                                                                 |
+| `AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS`     | `1`                            | Provider request attempts for retryable OpenAI-compatible failures. Range: `1` to `5`.                                                                  |
+| `AGENT_GATEWAY_OPENAI_TIMEOUT_MS`       | `30000`                        | Outbound provider request timeout in milliseconds.                                                                                                      |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`           | unset                          | Optional OTLP HTTP collector base URL. The gateway appends `/v1/traces` and `/v1/metrics`.                                                              |
+| `OTEL_EXPORTER_OTLP_HEADERS`            | unset                          | Optional comma-separated OTLP headers in `key=value` format.                                                                                            |
+| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`   | unset                          | Optional exact OTLP HTTP metrics endpoint. Takes precedence over the base endpoint for metrics.                                                         |
+| `OTEL_EXPORTER_OTLP_METRICS_HEADERS`    | unset                          | Optional metric-specific OTLP headers. Overrides generic header keys.                                                                                   |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`    | unset                          | Optional exact OTLP HTTP traces endpoint. Takes precedence over the base endpoint.                                                                      |
+| `OTEL_EXPORTER_OTLP_TRACES_HEADERS`     | unset                          | Optional trace-specific OTLP headers. Overrides generic header keys.                                                                                    |
+| `OTEL_SERVICE_NAME`                     | `agent-gateway`                | Service name used by OpenTelemetry API tracers.                                                                                                         |
+| `PORT`                                  | `8080`                         | HTTP listen port.                                                                                                                                       |
 
 `/healthz` returns a lightweight process health response. `/readyz` returns the configured service name, registered providers, and resolved default provider for deployment readiness checks. The container image uses `/readyz` for its Docker healthcheck.
 
@@ -89,7 +89,7 @@ Use the `*_FILE` secret variables when mounting secrets from an orchestrator. Fi
 
 Set `AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS` above `1` to retry transient OpenAI-compatible failures. Retries are limited to request failures, timeouts, and clearly retryable upstream statuses: `408`, `409`, `425`, `429`, `500`, `502`, `503`, and `504`. Non-transient upstream responses and malformed successful responses are not retried. Provider-call traces and logs include attempt and retry counts.
 
-When `AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS` is set, requests are rejected with `policy_rejected` before provider execution unless the resolved provider and requested model match one of the configured rules. Each allow-list entry is trimmed and must use non-blank `provider:model` format; blank entries, missing segments, or extra separators fail startup. Example: `echo:local-test,openai-compatible:gpt-4o-mini,openai-compatible:*`.
+When `AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS` is set, requests are rejected with `policy_rejected` before provider execution unless the resolved provider and requested model match one of the configured rules. Each allow-list entry is trimmed and must use non-blank `provider:model` format; blank entries, missing segments, extra separators, or concrete provider names that are not registered fail startup. Use `*` for an intentional provider or model wildcard. Example: `echo:local-test,openai-compatible:gpt-4o-mini,openai-compatible:*`.
 
 When `AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES` is set, Fastify rejects oversized JSON bodies with `request_body_too_large` before the route handler runs. When `AGENT_GATEWAY_MAX_INPUT_BYTES` is set, the gateway measures the parsed `input` as UTF-8 bytes and rejects oversized inputs with `input_too_large` before provider execution. These byte limits bound payload and data-URL abuse; `AGENT_GATEWAY_MAX_INPUT_TOKENS` remains the separate model-cost budget.
 

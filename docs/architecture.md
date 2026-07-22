@@ -8,7 +8,7 @@ Agent Gateway keeps the HTTP boundary, provider routing, and observability conce
 - `/readyz` reports the service name, registered providers, and resolved default provider for deployment readiness checks.
 - The Docker image includes a healthcheck that probes `/readyz` on the configured `PORT`.
 - Startup fails if the configured default provider is blank or not registered, which catches deployment misconfiguration before traffic is accepted.
-- Provider/model allow-list entries are trimmed and must use non-blank `provider:model` format before app construction.
+- Provider/model allow-list entries are trimmed, must use non-blank `provider:model` format, and must reference registered concrete providers before app construction.
 - Gateway and OpenAI-compatible API keys can be sourced from readable non-empty files for orchestrator-mounted secrets.
 
 ## Request Flow
@@ -42,7 +42,7 @@ Agent Gateway keeps the HTTP boundary, provider routing, and observability conce
 
 - The `echo` provider is deterministic and local so CI can validate the gateway without external credentials.
 - The `openai-compatible` provider is registered only when `AGENT_GATEWAY_OPENAI_API_KEY` is present, and tests mock outbound calls instead of using live credentials. Its retry control is opt-in with a bounded attempt range and only retries request failures, timeouts, and selected transient upstream statuses.
-- Provider/model policy is opt-in so existing deployments keep permissive behavior until an allow list is configured. Configured allow-list entries fail startup when any provider or model segment is blank or malformed.
+- Provider/model policy is opt-in so existing deployments keep permissive behavior until an allow list is configured. Configured allow-list entries fail startup when any provider or model segment is blank or malformed, or when a concrete provider name is not registered in the running process.
 - Request-shape validation is strict at the top level so accidental client parameters are rejected before provider selection or outbound calls. Request `input`, `model`, and supplied `provider` values must contain non-whitespace text. `metadata` remains an open key/value bag for caller-owned context.
 - Request body and input byte limits are opt-in so operators can bound payload size without changing provider behavior. Input size is measured as UTF-8 bytes, which keeps data-URL and non-ASCII payload accounting deterministic.
 - Input token budgeting is opt-in and uses a simple local estimate so CI and early rejection behavior stay deterministic.

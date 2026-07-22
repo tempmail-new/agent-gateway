@@ -52,6 +52,10 @@ export function buildApp(config: GatewayConfig, options: BuildAppOptions = {}) {
     providers.register(new OpenAICompatibleProvider(config.openAICompatible));
   }
 
+  validateConfiguredPolicyProviders(
+    config.requestPolicy.allowedProviderModels.map((rule) => rule.provider),
+    providers.list(),
+  );
   const defaultProvider = providers.get();
 
   app.addHook("onResponse", async (request, reply) => {
@@ -317,6 +321,22 @@ function nonBlankStringSchema(fieldName: string) {
     .refine((value) => value.trim().length > 0, {
       message: `${fieldName} cannot be blank`,
     });
+}
+
+function validateConfiguredPolicyProviders(
+  policyProviders: readonly string[],
+  registeredProviders: readonly string[],
+): void {
+  const registeredProviderSet = new Set(registeredProviders);
+  const unknownProviders = [...new Set(policyProviders)]
+    .filter((provider) => provider !== "*" && !registeredProviderSet.has(provider))
+    .sort();
+
+  if (unknownProviders.length > 0) {
+    throw new Error(
+      `AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS references unregistered provider(s): ${unknownProviders.join(", ")}`,
+    );
+  }
 }
 
 function isConfiguredRequestBodyTooLargeError(config: GatewayConfig, error: unknown): boolean {
