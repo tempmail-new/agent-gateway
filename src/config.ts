@@ -54,7 +54,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
   const apiKeys = parseCsv(
     readSecretValue(env, "AGENT_GATEWAY_API_KEYS", "AGENT_GATEWAY_API_KEYS_FILE"),
   );
-  const defaultProvider = env.AGENT_GATEWAY_DEFAULT_PROVIDER ?? "echo";
+  const defaultProvider = parseDefaultProvider(env.AGENT_GATEWAY_DEFAULT_PROVIDER);
   const nodeEnv = env.NODE_ENV ?? "development";
   const openAICompatible = loadOpenAICompatibleConfig(env, defaultProvider);
 
@@ -109,6 +109,19 @@ function parsePort(value: string | undefined): number {
   }
 
   return port;
+}
+
+function parseDefaultProvider(value: string | undefined): string {
+  if (value === undefined) {
+    return "echo";
+  }
+
+  const provider = value.trim();
+  if (provider.length === 0) {
+    throw new Error("AGENT_GATEWAY_DEFAULT_PROVIDER must be a non-blank provider name");
+  }
+
+  return provider;
 }
 
 function loadOpenAICompatibleConfig(
@@ -208,18 +221,36 @@ function parseOpenAIMaxAttempts(value: string | undefined): number {
 }
 
 function parseProviderModelRules(value: string | undefined): ProviderModelRule[] {
-  return parseCsv(value).map((rule) => {
+  if (value === undefined) {
+    return [];
+  }
+
+  return value.split(",").map((entry) => {
+    const rule = entry.trim();
     const separatorIndex = rule.indexOf(":");
 
-    if (separatorIndex < 1 || separatorIndex === rule.length - 1) {
+    if (
+      rule.length === 0 ||
+      separatorIndex < 1 ||
+      separatorIndex !== rule.lastIndexOf(":") ||
+      separatorIndex === rule.length - 1
+    ) {
       throw new Error(
-        "AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS entries must use provider:model format",
+        "AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS entries must use non-blank provider:model format",
+      );
+    }
+
+    const provider = rule.slice(0, separatorIndex).trim();
+    const model = rule.slice(separatorIndex + 1).trim();
+    if (provider.length === 0 || model.length === 0) {
+      throw new Error(
+        "AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS entries must use non-blank provider:model format",
       );
     }
 
     return {
-      model: rule.slice(separatorIndex + 1),
-      provider: rule.slice(0, separatorIndex),
+      model,
+      provider,
     };
   });
 }
