@@ -58,4 +58,46 @@ describe("gateway config", () => {
       "AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS entries must use non-blank provider:model format",
     );
   });
+
+  it.each([
+    ["port with trailing text", { PORT: "8080abc" }, "PORT must be an integer between 1 and 65535"],
+    [
+      "OpenAI-compatible retry attempts with trailing text",
+      {
+        AGENT_GATEWAY_OPENAI_API_KEY: "provider-token",
+        AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS: "2x",
+      },
+      "AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS must be an integer between 1 and 5",
+    ],
+    [
+      "OpenAI-compatible timeout with unit suffix",
+      {
+        AGENT_GATEWAY_OPENAI_API_KEY: "provider-token",
+        AGENT_GATEWAY_OPENAI_TIMEOUT_MS: "30000ms",
+      },
+      "AGENT_GATEWAY_OPENAI_TIMEOUT_MS must be an integer between 1 and 300000",
+    ],
+    [
+      "input token budget with exponent notation",
+      { AGENT_GATEWAY_MAX_INPUT_TOKENS: "1e3" },
+      "AGENT_GATEWAY_MAX_INPUT_TOKENS must be a positive integer",
+    ],
+    [
+      "request body limit with hexadecimal notation",
+      { AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES: "0x1000" },
+      "AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES must be a positive integer",
+    ],
+    [
+      "input byte limit with decimal notation",
+      { AGENT_GATEWAY_MAX_INPUT_BYTES: "64.5" },
+      "AGENT_GATEWAY_MAX_INPUT_BYTES must be a positive integer",
+    ],
+  ])("rejects non-decimal numeric config values: %s", (_name, env, errorMessage) => {
+    expect(() =>
+      loadConfig({
+        ...env,
+        NODE_ENV: "test",
+      }),
+    ).toThrow(errorMessage);
+  });
 });
