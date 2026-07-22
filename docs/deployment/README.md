@@ -62,4 +62,4 @@ Expected shape:
 }
 ```
 
-Startup fails before listening if `AGENT_GATEWAY_DEFAULT_PROVIDER` names an unregistered provider. The smoke script exercises that failure path before starting the healthy container.
+Startup fails before listening if `AGENT_GATEWAY_DEFAULT_PROVIDER` names an unregistered provider, or if `AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS` references a concrete provider that is not registered in the running process. The smoke script exercises the default-provider failure path before starting the healthy container.

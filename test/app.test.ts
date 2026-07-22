@@ -127,6 +127,32 @@ describe("agent gateway app", () => {
     ).toThrow("Unknown provider 'missing'");
   });
 
+  it("fails fast when allow-list rules reference unregistered providers", () => {
+    expect(() =>
+      buildApp(
+        loadConfig({
+          AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS: "echo:local-test,openai-compatible:gpt-4o-mini",
+          AGENT_GATEWAY_API_KEYS: "test-token",
+          NODE_ENV: "test",
+        }),
+      ),
+    ).toThrow(
+      "AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS references unregistered provider(s): openai-compatible",
+    );
+  });
+
+  it("allows wildcard provider policy entries at startup", () => {
+    const app = buildApp(
+      loadConfig({
+        AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS: "*:local-test",
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        NODE_ENV: "test",
+      }),
+    );
+
+    expect(app).toBeDefined();
+  });
+
   it("rejects unauthenticated gateway requests", async () => {
     const app = buildApp(config);
     const response = await app.inject({
