@@ -83,7 +83,7 @@ Response:
 
 Set `provider` to `openai-compatible` on a request, or set `AGENT_GATEWAY_DEFAULT_PROVIDER=openai-compatible`, to route through the outbound Chat Completions adapter. The adapter requires `AGENT_GATEWAY_OPENAI_API_KEY` or `AGENT_GATEWAY_OPENAI_API_KEY_FILE` and returns normalized `provider_error` responses for upstream failures, malformed responses, request failures, and timeouts. Startup fails if the configured default provider is not registered.
 
-`POST /v1/requests` accepts only `input`, `metadata`, `model`, and `provider` as top-level fields. Unknown top-level fields are rejected with `invalid_request` and `reason: request_schema_invalid` before provider selection or outbound calls.
+`POST /v1/requests` accepts only `input`, `metadata`, `model`, and `provider` as top-level fields. `input`, `model`, and supplied `provider` values must contain non-whitespace text. Unknown top-level fields and blank request fields are rejected with `invalid_request` and `reason: request_schema_invalid` before provider selection or outbound calls.
 
 Use the `*_FILE` secret variables when mounting secrets from an orchestrator. File contents are trimmed, must be non-empty, and cannot be combined with the matching inline secret variable.
 

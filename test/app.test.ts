@@ -223,6 +223,64 @@ describe("agent gateway app", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("rejects blank request fields before provider execution", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const app = buildApp(
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: "test-token",
+        AGENT_GATEWAY_OPENAI_API_KEY: "provider-token",
+        NODE_ENV: "test",
+        OTEL_SERVICE_NAME: "agent-gateway-test",
+      }),
+    );
+    const cases = [
+      {
+        field: "input",
+        payload: {
+          input: "   ",
+          model: "gpt-compatible",
+          provider: "openai-compatible",
+        },
+      },
+      {
+        field: "model",
+        payload: {
+          input: "hello",
+          model: "\t\n",
+          provider: "openai-compatible",
+        },
+      },
+      {
+        field: "provider",
+        payload: {
+          input: "hello",
+          model: "gpt-compatible",
+          provider: "   ",
+        },
+      },
+    ];
+
+    for (const testCase of cases) {
+      const response = await app.inject({
+        headers: { authorization: "Bearer test-token" },
+        method: "POST",
+        payload: testCase.payload,
+        url: "/v1/requests",
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({
+        error: "invalid_request",
+        reason: "request_schema_invalid",
+      });
+      expect(response.json().details.fieldErrors[testCase.field]).toContain(
+        `${testCase.field} cannot be blank`,
+      );
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("returns a typed error for unknown providers", async () => {
     const app = buildApp(config);
     const response = await app.inject({
