@@ -47,6 +47,7 @@ describe("deployment example assets", () => {
     const docs = [readRepoFile("README.md"), readRepoFile("docs/deployment/README.md")].join("\n");
     const compose = readRepoFile("compose.deployment-example.yaml");
     const makefile = readRepoFile("Makefile");
+    const diagnoseScript = readRepoFile("docs/deployment/container-example/diagnose.sh");
     const lifecycleScript = readRepoFile("docs/deployment/container-example/lifecycle.sh");
     const preflightScript = readRepoFile("docs/deployment/container-example/preflight.sh");
     const smokeScript = readRepoFile("docs/deployment/container-example/smoke.sh");
@@ -57,6 +58,7 @@ describe("deployment example assets", () => {
     expect(docs).toContain("make deployment-up");
     expect(docs).toContain("make deployment-ready");
     expect(docs).toContain("make deployment-request");
+    expect(docs).toContain("make deployment-diagnose");
     expect(docs).toContain("make deployment-logs");
     expect(docs).toContain("make deployment-down");
     expect(docs).toContain("mounted secret files");
@@ -69,6 +71,8 @@ describe("deployment example assets", () => {
     expect(docs).toContain("readable and non-empty");
     expect(makefile).toContain("deployment-smoke:");
     expect(makefile).toContain("docs/deployment/container-example/smoke.sh");
+    expect(makefile).toContain("deployment-diagnose:");
+    expect(makefile).toContain("docs/deployment/container-example/diagnose.sh");
     expect(makefile).toContain("deployment-preflight:");
     expect(makefile).toContain("docs/deployment/container-example/preflight.sh");
     expect(makefile).toContain("deployment-up:");
@@ -81,6 +85,10 @@ describe("deployment example assets", () => {
     expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh logs");
     expect(makefile).toContain("deployment-down:");
     expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh down");
+    expect(diagnoseScript).toContain("compose ps --all");
+    expect(diagnoseScript).toContain("docker inspect --format");
+    expect(diagnoseScript).toContain("gateway readiness");
+    expect(diagnoseScript).toContain('compose logs --tail="$LOG_TAIL" gateway');
     expect(lifecycleScript).toContain("wait_for_readyz");
     expect(lifecycleScript).toContain("wait_for_container_health");
     expect(lifecycleScript).toContain("/v1/requests");
@@ -105,6 +113,8 @@ describe("deployment example assets", () => {
     expect(smokeScript).toContain("wait_for_container_health");
     expect(smokeScript).toContain("/v1/requests");
     expect(smokeScript).toContain("docs/deployment/container-example/preflight.sh");
+    expect(smokeScript).toContain("docs/deployment/container-example/diagnose.sh");
+    expect(smokeScript).toContain("deployment smoke failed during");
     expect(dockerfile).toContain("/readyz");
   });
 });
