@@ -11,6 +11,7 @@ Agent Gateway keeps the HTTP boundary, provider routing, and observability conce
 - Provider/model allow-list entries are trimmed, must use non-blank `provider:model` format, and must reference registered concrete providers before app construction.
 - Numeric environment variables use strict base-10 integer parsing so malformed values fail startup instead of being partially accepted.
 - Gateway and OpenAI-compatible API keys can be sourced from readable non-empty files for orchestrator-mounted secrets.
+- Gateway API-key lists are trimmed and fail startup on blank comma-separated entries so malformed auth config is not silently accepted.
 
 ## Request Flow
 
@@ -50,4 +51,4 @@ Agent Gateway keeps the HTTP boundary, provider routing, and observability conce
 - OTLP export is opt-in so local development and CI do not require a collector. Generic collector endpoints enable trace and metric export paths; signal-specific endpoints can enable either path independently.
 - The first metric surface is intentionally small: HTTP request count/duration and provider call count/duration. The repository includes starter collector, dashboard, alert, and runbook assets for these instruments; a larger taxonomy is deferred until these signals are exercised.
 - Provider-call logs intentionally exclude prompts, metadata, bearer tokens, and provider API keys. They include operational fields such as provider, model, request ID, duration, upstream status, attempt count, retry count, timeout flag, and normalized error code.
-- API keys can be configured through inline environment variables or matching `*_FILE` variables for mounted secret files. Direct secret manager APIs still belong in a later platform-specific increment.
+- API keys can be configured through inline environment variables or matching `*_FILE` variables for mounted secret files. Blank `AGENT_GATEWAY_API_KEYS` entries fail startup, while the non-production `dev-token` fallback is preserved only when no API keys are configured. Direct secret manager APIs still belong in a later platform-specific increment.

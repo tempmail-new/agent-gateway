@@ -9,6 +9,36 @@ describe("gateway config", () => {
     expect(config.defaultProvider).toBe("echo");
   });
 
+  it("uses the development API key fallback when API keys are unset or blank", () => {
+    expect([...loadConfig({ NODE_ENV: "test" }).apiKeys]).toEqual(["dev-token"]);
+    expect([...loadConfig({ AGENT_GATEWAY_API_KEYS: " \t\n ", NODE_ENV: "test" }).apiKeys]).toEqual(
+      ["dev-token"],
+    );
+  });
+
+  it("trims configured API keys", () => {
+    const config = loadConfig({
+      AGENT_GATEWAY_API_KEYS: " first-token , second-token ",
+      NODE_ENV: "test",
+    });
+
+    expect([...config.apiKeys]).toEqual(["first-token", "second-token"]);
+  });
+
+  it.each([
+    ["leading comma", ",first-token"],
+    ["trailing comma", "first-token,"],
+    ["repeated comma", "first-token,,second-token"],
+    ["whitespace entry", "first-token,   ,second-token"],
+  ])("rejects blank API key entries: %s", (_name, value) => {
+    expect(() =>
+      loadConfig({
+        AGENT_GATEWAY_API_KEYS: value,
+        NODE_ENV: "test",
+      }),
+    ).toThrow("AGENT_GATEWAY_API_KEYS entries must be non-blank");
+  });
+
   it("trims the configured default provider", () => {
     const config = loadConfig({
       AGENT_GATEWAY_DEFAULT_PROVIDER: "  openai-compatible  ",
