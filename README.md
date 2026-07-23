@@ -59,7 +59,7 @@ Response:
 | Variable                                | Default                        | Purpose                                                                                                                                                 |
 | --------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS` | unset                          | Optional comma-separated `provider:model` allow list. Entries are trimmed, non-blank, support `*` wildcards, and concrete providers must be registered. |
-| `AGENT_GATEWAY_API_KEYS`                | `dev-token` outside production | Comma-separated bearer tokens allowed to call `/v1/requests`. Required in production.                                                                   |
+| `AGENT_GATEWAY_API_KEYS`                | `dev-token` outside production | Comma-separated bearer tokens allowed to call `/v1/requests`. Entries are trimmed, and blank entries fail startup. Required in production.              |
 | `AGENT_GATEWAY_API_KEYS_FILE`           | unset                          | Path to a readable file containing `AGENT_GATEWAY_API_KEYS`. Cannot be combined with the inline variable.                                               |
 | `AGENT_GATEWAY_DEFAULT_PROVIDER`        | `echo`                         | Trimmed non-blank provider selected when a request omits `provider`.                                                                                    |
 | `AGENT_GATEWAY_MAX_INPUT_BYTES`         | unset                          | Optional positive base-10 integer byte limit for parsed request `input`. Oversized inputs are rejected early.                                           |
@@ -85,7 +85,7 @@ Set `provider` to `openai-compatible` on a request, or set `AGENT_GATEWAY_DEFAUL
 
 `POST /v1/requests` accepts only `input`, `metadata`, `model`, and `provider` as top-level fields. `input`, `model`, and supplied `provider` values must contain non-whitespace text. Unknown top-level fields and blank request fields are rejected with `invalid_request` and `reason: request_schema_invalid` before provider selection or outbound calls.
 
-Use the `*_FILE` secret variables when mounting secrets from an orchestrator. File contents are trimmed, must be non-empty, and cannot be combined with the matching inline secret variable.
+Use the `*_FILE` secret variables when mounting secrets from an orchestrator. File contents are trimmed, must be non-empty, and cannot be combined with the matching inline secret variable. `AGENT_GATEWAY_API_KEYS` file or inline values may contain comma-separated tokens, but empty comma-separated entries are rejected during startup.
 
 Set `AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS` above `1` to retry transient OpenAI-compatible failures. Retries are limited to request failures, timeouts, and clearly retryable upstream statuses: `408`, `409`, `425`, `429`, `500`, `502`, `503`, and `504`. Non-transient upstream responses and malformed successful responses are not retried. Provider-call traces and logs include attempt and retry counts.
 

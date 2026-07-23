@@ -37,7 +37,7 @@ The example uses Docker Compose secrets:
 | `AGENT_GATEWAY_API_KEYS_FILE`       | `/run/secrets/agent_gateway_api_keys`       |
 | `AGENT_GATEWAY_OPENAI_API_KEY_FILE` | `/run/secrets/agent_gateway_openai_api_key` |
 
-The checked-in files under `docs/deployment/container-example/secrets/` contain local example values only. Replace them with real secret material in an actual deployment and keep inline `AGENT_GATEWAY_API_KEYS` or `AGENT_GATEWAY_OPENAI_API_KEY` unset when the matching `*_FILE` variable is used.
+The checked-in files under `docs/deployment/container-example/secrets/` contain local example values only. Replace them with real secret material in an actual deployment and keep inline `AGENT_GATEWAY_API_KEYS` or `AGENT_GATEWAY_OPENAI_API_KEY` unset when the matching `*_FILE` variable is used. `AGENT_GATEWAY_API_KEYS` file contents can use comma-separated tokens, but blank entries fail startup.
 
 The OpenAI-compatible secret is mounted to prove provider secret loading and provider registration without sending live provider traffic. The smoke request uses the local `echo` provider through `AGENT_GATEWAY_DEFAULT_PROVIDER=echo`.
 

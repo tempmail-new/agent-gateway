@@ -51,7 +51,7 @@ export interface ProviderModelRule {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig {
-  const apiKeys = parseCsv(
+  const apiKeys = parseApiKeys(
     readSecretValue(env, "AGENT_GATEWAY_API_KEYS", "AGENT_GATEWAY_API_KEYS_FILE"),
   );
   const defaultProvider = parseDefaultProvider(env.AGENT_GATEWAY_DEFAULT_PROVIDER);
@@ -96,6 +96,21 @@ function parseCsv(value: string | undefined): string[] {
     .split(",")
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
+}
+
+function parseApiKeys(value: string | undefined): string[] {
+  if (value === undefined || value.length === 0) {
+    return [];
+  }
+
+  return value.split(",").map((entry) => {
+    const apiKey = entry.trim();
+    if (apiKey.length === 0) {
+      throw new Error("AGENT_GATEWAY_API_KEYS entries must be non-blank");
+    }
+
+    return apiKey;
+  });
 }
 
 function parsePort(value: string | undefined): number {
