@@ -103,7 +103,7 @@ function parsePort(value: string | undefined): number {
     return 8080;
   }
 
-  const port = Number.parseInt(value, 10);
+  const port = parseStrictInteger(value);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error("PORT must be an integer between 1 and 65535");
   }
@@ -199,7 +199,7 @@ function parseTimeoutMs(value: string | undefined): number {
     return 30_000;
   }
 
-  const timeoutMs = Number.parseInt(value, 10);
+  const timeoutMs = parseStrictInteger(value);
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 300_000) {
     throw new Error("AGENT_GATEWAY_OPENAI_TIMEOUT_MS must be an integer between 1 and 300000");
   }
@@ -212,7 +212,7 @@ function parseOpenAIMaxAttempts(value: string | undefined): number {
     return 1;
   }
 
-  const maxAttempts = Number.parseInt(value, 10);
+  const maxAttempts = parseStrictInteger(value);
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 5) {
     throw new Error("AGENT_GATEWAY_OPENAI_MAX_ATTEMPTS must be an integer between 1 and 5");
   }
@@ -263,9 +263,23 @@ function parseOptionalPositiveInteger(
     return undefined;
   }
 
-  const parsedValue = Number(value);
+  const parsedValue = parseStrictInteger(value);
   if (!Number.isInteger(parsedValue) || parsedValue < 1) {
     throw new Error(`${variableName} must be a positive integer`);
+  }
+
+  return parsedValue;
+}
+
+function parseStrictInteger(value: string): number {
+  const trimmedValue = value.trim();
+  if (!/^-?\d+$/.test(trimmedValue)) {
+    return Number.NaN;
+  }
+
+  const parsedValue = Number(trimmedValue);
+  if (!Number.isSafeInteger(parsedValue)) {
+    return Number.NaN;
   }
 
   return parsedValue;

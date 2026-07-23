@@ -9,6 +9,7 @@ Agent Gateway keeps the HTTP boundary, provider routing, and observability conce
 - The Docker image includes a healthcheck that probes `/readyz` on the configured `PORT`.
 - Startup fails if the configured default provider is blank or not registered, which catches deployment misconfiguration before traffic is accepted.
 - Provider/model allow-list entries are trimmed, must use non-blank `provider:model` format, and must reference registered concrete providers before app construction.
+- Numeric environment variables use strict base-10 integer parsing so malformed values fail startup instead of being partially accepted.
 - Gateway and OpenAI-compatible API keys can be sourced from readable non-empty files for orchestrator-mounted secrets.
 
 ## Request Flow
