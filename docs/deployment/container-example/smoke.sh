@@ -101,6 +101,10 @@ verify_request_path() {
 
 require_command curl
 require_command docker
+
+log "run deployment preflight"
+docs/deployment/container-example/preflight.sh
+
 trap 'finish "$?"' EXIT
 
 log "validate compose file"
