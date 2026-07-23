@@ -12,6 +12,7 @@ Agent Gateway keeps the HTTP boundary, provider routing, and observability conce
 - Numeric environment variables use strict base-10 integer parsing so malformed values fail startup instead of being partially accepted.
 - Gateway and OpenAI-compatible API keys can be sourced from readable non-empty files for orchestrator-mounted secrets.
 - Gateway API-key lists are trimmed and fail startup on blank comma-separated entries so malformed auth config is not silently accepted.
+- The checked-in deployment example has a preflight helper that verifies Docker prerequisites, compose validity, local port availability, stale containers, and mounted example secret readability before startup.
 
 ## Request Flow
 

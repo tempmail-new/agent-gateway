@@ -71,8 +71,8 @@ wait_for_container_health() {
 
 up() {
   require_command docker
-  log "validate compose file"
-  compose config >/dev/null
+  log "run deployment preflight"
+  docs/deployment/container-example/preflight.sh
   log "start gateway"
   compose up --build -d gateway
 }

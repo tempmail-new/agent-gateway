@@ -10,6 +10,18 @@ function readRepoFile(relativePath: string): string {
   return readFileSync(path.join(repoRoot, relativePath), "utf8");
 }
 
+function publishedComposePorts(compose: string): string[] {
+  return Array.from(compose.matchAll(/-\s+"(\d+):\d+"/g), (match) => match[1]).sort();
+}
+
+function preflightDefaultPorts(preflightScript: string): string[] {
+  const match = preflightScript.match(/DEPLOYMENT_EXAMPLE_PORTS:-(?<ports>[^}]+)}/);
+
+  expect(match?.groups?.ports).toBeDefined();
+
+  return match?.groups?.ports.split(/\s+/).sort() ?? [];
+}
+
 describe("deployment example assets", () => {
   it("ships a compose example using mounted secret files and readiness health", () => {
     const compose = readRepoFile("compose.deployment-example.yaml");
@@ -33,12 +45,15 @@ describe("deployment example assets", () => {
 
   it("documents and scripts the deployment smoke path", () => {
     const docs = [readRepoFile("README.md"), readRepoFile("docs/deployment/README.md")].join("\n");
+    const compose = readRepoFile("compose.deployment-example.yaml");
     const makefile = readRepoFile("Makefile");
     const lifecycleScript = readRepoFile("docs/deployment/container-example/lifecycle.sh");
+    const preflightScript = readRepoFile("docs/deployment/container-example/preflight.sh");
     const smokeScript = readRepoFile("docs/deployment/container-example/smoke.sh");
     const dockerfile = readRepoFile("Dockerfile");
 
     expect(docs).toContain("make deployment-smoke");
+    expect(docs).toContain("make deployment-preflight");
     expect(docs).toContain("make deployment-up");
     expect(docs).toContain("make deployment-ready");
     expect(docs).toContain("make deployment-request");
@@ -50,8 +65,12 @@ describe("deployment example assets", () => {
     expect(docs).toContain("AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES=8192");
     expect(docs).toContain("http://localhost:18080/readyz");
     expect(docs).toContain("Startup fails before listening");
+    expect(docs).toContain("default deployment port `18080`");
+    expect(docs).toContain("readable and non-empty");
     expect(makefile).toContain("deployment-smoke:");
     expect(makefile).toContain("docs/deployment/container-example/smoke.sh");
+    expect(makefile).toContain("deployment-preflight:");
+    expect(makefile).toContain("docs/deployment/container-example/preflight.sh");
     expect(makefile).toContain("deployment-up:");
     expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh up");
     expect(makefile).toContain("deployment-ready:");
@@ -67,11 +86,25 @@ describe("deployment example assets", () => {
     expect(lifecycleScript).toContain("/v1/requests");
     expect(lifecycleScript).toContain("compose logs -f");
     expect(lifecycleScript).toContain("compose down --remove-orphans");
+    expect(lifecycleScript).toContain("docs/deployment/container-example/preflight.sh");
+    expect(preflightScript).toContain("docker info");
+    expect(preflightScript).toContain("docker compose version");
+    expect(preflightScript).toContain('docker compose -f "$COMPOSE_FILE" config');
+    expect(preflightScript).toContain("DEPLOYMENT_EXAMPLE_PORTS:-18080");
+    expect(preflightScript).toContain("port %s is already in use");
+    expect(preflightScript).toContain("DEPLOYMENT_EXAMPLE_SECRET_FILES");
+    expect(preflightScript).toContain("gateway-api-keys.example");
+    expect(preflightScript).toContain("openai-api-key.example");
+    expect(preflightScript).toContain("secret file is readable and non-empty");
+    expect(preflightScript).toContain("make deployment-down");
+    expect(preflightScript).toContain("agent-gateway-deployment-example");
+    expect(preflightDefaultPorts(preflightScript)).toEqual(publishedComposePorts(compose));
     expect(smokeScript).toContain("verify_default_provider_validation");
     expect(smokeScript).toContain("Unknown provider 'missing'");
     expect(smokeScript).toContain("wait_for_readyz");
     expect(smokeScript).toContain("wait_for_container_health");
     expect(smokeScript).toContain("/v1/requests");
+    expect(smokeScript).toContain("docs/deployment/container-example/preflight.sh");
     expect(dockerfile).toContain("/readyz");
   });
 });
