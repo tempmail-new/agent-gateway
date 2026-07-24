@@ -7,6 +7,7 @@ GATEWAY_URL="${DEPLOYMENT_EXAMPLE_GATEWAY_URL:-http://localhost:18080}"
 SMOKE_TOKEN="${AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN:-deploy-example-token}"
 WAIT_ATTEMPTS="${DEPLOYMENT_EXAMPLE_WAIT_ATTEMPTS:-30}"
 WAIT_SECONDS="${DEPLOYMENT_EXAMPLE_WAIT_SECONDS:-2}"
+current_step="startup"
 
 compose() {
   COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT" docker compose -f "$COMPOSE_FILE" "$@"
@@ -23,11 +24,15 @@ fail() {
 
 finish() {
   status="$1"
+  trap - EXIT
+
   if [ "$status" -ne 0 ]; then
-    compose ps || true
-    compose logs --tail=80 gateway || true
+    printf "\ndeployment smoke failed during: %s\n" "$current_step" >&2
+    docs/deployment/container-example/diagnose.sh >&2 || true
   fi
+
   compose down --remove-orphans >/dev/null 2>&1 || true
+  exit "$status"
 }
 
 require_command() {
@@ -99,33 +104,38 @@ verify_request_path() {
   printf '%s\n' "$response" | grep -q '"model":"local-test"' || fail "smoke request returned an unexpected model"
 }
 
+validate_compose_file() {
+  compose config >/dev/null
+}
+
+run_step() {
+  current_step="$1"
+  shift
+
+  log "$current_step"
+  "$@"
+}
+
 require_command curl
 require_command docker
 
-log "run deployment preflight"
-docs/deployment/container-example/preflight.sh
+run_step "run deployment preflight" docs/deployment/container-example/preflight.sh
 
 trap 'finish "$?"' EXIT
 
-log "validate compose file"
-compose config >/dev/null
+run_step "validate compose file" validate_compose_file
 
-log "build gateway image"
-compose build gateway
+run_step "build gateway image" compose build gateway
 
-log "verify default provider startup validation"
-verify_default_provider_validation
+run_step "verify default provider startup validation" verify_default_provider_validation
 
-log "start gateway with mounted secret files"
-compose up -d gateway
+run_step "start gateway with mounted secret files" compose up -d gateway
 
-log "wait for readiness"
-wait_for_readyz
+run_step "wait for readiness" wait_for_readyz
 
-log "wait for container healthcheck"
-wait_for_container_health
+run_step "wait for container healthcheck" wait_for_container_health
 
-log "send authenticated smoke request"
-verify_request_path
+run_step "send authenticated smoke request" verify_request_path
 
+current_step="complete"
 log "ok"

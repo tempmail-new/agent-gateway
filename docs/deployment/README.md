@@ -21,13 +21,14 @@ make deployment-preflight
 make deployment-up
 make deployment-ready
 make deployment-request
+make deployment-diagnose
 make deployment-logs
 make deployment-down
 ```
 
-`deployment-preflight` verifies Docker, Docker Compose, compose-file validity, default deployment port `18080` availability, stale deployment containers, and that the mounted example secret files are readable and non-empty. `deployment-up` runs the same preflight checks before starting the gateway with a build. `deployment-ready` waits for `/readyz` and the Docker healthcheck. `deployment-request` sends one authenticated echo request with the example token. `deployment-logs` tails gateway logs, and `deployment-down` removes the example stack.
+`deployment-preflight` verifies Docker, Docker Compose, compose-file validity, default deployment port `18080` availability, stale deployment containers, and that the mounted example secret files are readable and non-empty. `deployment-up` runs the same preflight checks before starting the gateway with a build. `deployment-ready` waits for `/readyz` and the Docker healthcheck. `deployment-request` sends one authenticated echo request with the example token. `deployment-diagnose` prints compose service state, gateway container health, `/readyz`, and recent gateway logs for a failed or manually inspected run. `deployment-logs` tails gateway logs, and `deployment-down` removes the example stack.
 
-The lifecycle targets use the same defaults as the smoke path. Override `DEPLOYMENT_EXAMPLE_COMPOSE_PROJECT`, `DEPLOYMENT_EXAMPLE_GATEWAY_URL`, `DEPLOYMENT_EXAMPLE_PORTS`, `DEPLOYMENT_EXAMPLE_SECRET_FILES`, `AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN`, `DEPLOYMENT_EXAMPLE_WAIT_ATTEMPTS`, or `DEPLOYMENT_EXAMPLE_WAIT_SECONDS` when you need to run against a different local port, secret file set, or token.
+The lifecycle targets use the same defaults as the smoke path. Override `DEPLOYMENT_EXAMPLE_COMPOSE_PROJECT`, `DEPLOYMENT_EXAMPLE_GATEWAY_URL`, `DEPLOYMENT_EXAMPLE_PORTS`, `DEPLOYMENT_EXAMPLE_SECRET_FILES`, `AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN`, `DEPLOYMENT_EXAMPLE_WAIT_ATTEMPTS`, `DEPLOYMENT_EXAMPLE_WAIT_SECONDS`, or `DEPLOYMENT_EXAMPLE_DIAGNOSE_LOG_TAIL` when you need to run against a different local port, secret file set, token, or diagnostic log depth.
 
 ## Secret Mounts
 
