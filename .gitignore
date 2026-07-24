@@ -4,3 +4,5 @@ coverage/
 .env
 .DS_Store
 *.log
+docs/deployment/container-example/.env.local
+docs/deployment/container-example/secrets/*.local

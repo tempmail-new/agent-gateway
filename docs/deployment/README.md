@@ -28,7 +28,15 @@ make deployment-down
 
 `deployment-preflight` verifies Docker, Docker Compose, compose-file validity, default deployment port `18080` availability, stale deployment containers, and that the mounted example secret files are readable and non-empty. `deployment-up` runs the same preflight checks before starting the gateway with a build. `deployment-ready` waits for `/readyz` and the Docker healthcheck. `deployment-request` sends one authenticated echo request with the example token. `deployment-diagnose` prints compose service state, gateway container health, `/readyz`, and recent gateway logs for a failed or manually inspected run. `deployment-logs` tails gateway logs, and `deployment-down` removes the example stack.
 
-The lifecycle targets use the same defaults as the smoke path. Override `DEPLOYMENT_EXAMPLE_COMPOSE_PROJECT`, `DEPLOYMENT_EXAMPLE_GATEWAY_URL`, `DEPLOYMENT_EXAMPLE_PORTS`, `DEPLOYMENT_EXAMPLE_SECRET_FILES`, `AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN`, `DEPLOYMENT_EXAMPLE_WAIT_ATTEMPTS`, `DEPLOYMENT_EXAMPLE_WAIT_SECONDS`, or `DEPLOYMENT_EXAMPLE_DIAGNOSE_LOG_TAIL` when you need to run against a different local port, secret file set, token, or diagnostic log depth.
+The lifecycle targets use the same defaults as the smoke path. Copy `docs/deployment/container-example/.env.local.example` to `docs/deployment/container-example/.env.local` when you need local overrides without editing tracked files:
+
+```bash
+cp docs/deployment/container-example/.env.local.example docs/deployment/container-example/.env.local
+```
+
+Use that local file to set `DEPLOYMENT_EXAMPLE_GATEWAY_PORT`, `DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE`, and `DEPLOYMENT_EXAMPLE_OPENAI_API_KEY_FILE`. The helper scripts source it before running Docker Compose, so `make deployment-preflight`, `make deployment-up`, `make deployment-smoke`, and `make deployment-diagnose` all use the same port and secret-file paths. Create the referenced `*.local` secret files before running the preflight or smoke path. The local file and `*.local` secret files are ignored by Git.
+
+You can still override `DEPLOYMENT_EXAMPLE_ENV_FILE`, `DEPLOYMENT_EXAMPLE_COMPOSE_PROJECT`, `DEPLOYMENT_EXAMPLE_GATEWAY_URL`, `DEPLOYMENT_EXAMPLE_PORTS`, `DEPLOYMENT_EXAMPLE_SECRET_FILES`, `AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN`, `DEPLOYMENT_EXAMPLE_WAIT_ATTEMPTS`, `DEPLOYMENT_EXAMPLE_WAIT_SECONDS`, or `DEPLOYMENT_EXAMPLE_DIAGNOSE_LOG_TAIL` from the shell when you need a different local env-file path, compose project, URL, token, or diagnostic log depth.
 
 ## Secret Mounts
 
@@ -39,7 +47,7 @@ The example uses Docker Compose secrets:
 | `AGENT_GATEWAY_API_KEYS_FILE`       | `/run/secrets/agent_gateway_api_keys`       |
 | `AGENT_GATEWAY_OPENAI_API_KEY_FILE` | `/run/secrets/agent_gateway_openai_api_key` |
 
-The checked-in files under `docs/deployment/container-example/secrets/` contain local example values only. Replace them with real secret material in an actual deployment and keep inline `AGENT_GATEWAY_API_KEYS` or `AGENT_GATEWAY_OPENAI_API_KEY` unset when the matching `*_FILE` variable is used. `AGENT_GATEWAY_API_KEYS` file contents can use comma-separated tokens, but blank entries fail startup.
+The checked-in files under `docs/deployment/container-example/secrets/` contain local example values only. For local customization, point `DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE` and `DEPLOYMENT_EXAMPLE_OPENAI_API_KEY_FILE` at untracked `*.local` files instead of editing the examples. Replace example values with real secret material in an actual deployment and keep inline `AGENT_GATEWAY_API_KEYS` or `AGENT_GATEWAY_OPENAI_API_KEY` unset when the matching `*_FILE` variable is used. `AGENT_GATEWAY_API_KEYS` file contents can use comma-separated tokens, but blank entries fail startup.
 
 The OpenAI-compatible secret is mounted to prove provider secret loading and provider registration without sending live provider traffic. The smoke request uses the local `echo` provider through `AGENT_GATEWAY_DEFAULT_PROVIDER=echo`.
 
