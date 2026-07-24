@@ -1,10 +1,9 @@
 #!/usr/bin/env sh
 set -eu
 
-COMPOSE_FILE="${DEPLOYMENT_EXAMPLE_COMPOSE_FILE:-compose.deployment-example.yaml}"
-COMPOSE_PROJECT_NAME="${DEPLOYMENT_EXAMPLE_COMPOSE_PROJECT:-agent-gateway-deployment-example}"
-DEPLOYMENT_EXAMPLE_PORTS="${DEPLOYMENT_EXAMPLE_PORTS:-18080}"
-DEPLOYMENT_EXAMPLE_SECRET_FILES="${DEPLOYMENT_EXAMPLE_SECRET_FILES:-docs/deployment/container-example/secrets/gateway-api-keys.example docs/deployment/container-example/secrets/openai-api-key.example}"
+. docs/deployment/container-example/env.sh
+
+COMPOSE_PROJECT_NAME="$DEPLOYMENT_EXAMPLE_COMPOSE_PROJECT"
 failed=0
 
 export COMPOSE_PROJECT_NAME
@@ -58,7 +57,7 @@ NODE
   fi
 
   printf "port %s is already in use\n" "$port" >&2
-  printf "Stop the process using port %s, or change DEPLOYMENT_EXAMPLE_PORTS if you intentionally remapped the deployment example.\n" "$port" >&2
+  printf "Stop the process using port %s, or change DEPLOYMENT_EXAMPLE_GATEWAY_PORT in %s if you intentionally remapped the deployment example.\n" "$port" "$DEPLOYMENT_EXAMPLE_ENV_FILE" >&2
   mark_failed
   return 1
 }
@@ -125,18 +124,18 @@ if require_command "node" "Install Node.js 22 or newer so the preflight can veri
 fi
 
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
-  if docker compose -f "$COMPOSE_FILE" config >/dev/null 2>&1; then
-    printf "ok: %s is a valid compose file\n" "$COMPOSE_FILE"
+  if docker compose -f "$DEPLOYMENT_EXAMPLE_COMPOSE_FILE" config >/dev/null 2>&1; then
+    printf "ok: %s is a valid compose file\n" "$DEPLOYMENT_EXAMPLE_COMPOSE_FILE"
   else
-    printf "failed to validate compose file: %s\n" "$COMPOSE_FILE" >&2
+    printf "failed to validate compose file: %s\n" "$DEPLOYMENT_EXAMPLE_COMPOSE_FILE" >&2
     mark_failed
   fi
 
-  existing_containers="$(docker compose -f "$COMPOSE_FILE" ps --all --quiet 2>/dev/null || true)"
+  existing_containers="$(docker compose -f "$DEPLOYMENT_EXAMPLE_COMPOSE_FILE" ps --all --quiet 2>/dev/null || true)"
   if [ -n "$existing_containers" ]; then
     printf "deployment example containers already exist for compose project '%s'\n" "$COMPOSE_PROJECT_NAME" >&2
     printf "Run 'make deployment-down' to remove stale deployment containers before starting a fresh smoke run.\n" >&2
-    docker compose -f "$COMPOSE_FILE" ps --all >&2 || true
+    docker compose -f "$DEPLOYMENT_EXAMPLE_COMPOSE_FILE" ps --all >&2 || true
     mark_failed
   else
     printf "ok: no stale deployment example containers found\n"

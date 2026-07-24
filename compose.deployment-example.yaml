@@ -13,13 +13,13 @@ services:
       OTEL_SERVICE_NAME: agent-gateway-deployment-example
       PORT: "8080"
     ports:
-      - "18080:8080"
+      - "${DEPLOYMENT_EXAMPLE_GATEWAY_PORT:-18080}:8080"
     secrets:
       - agent_gateway_api_keys
       - agent_gateway_openai_api_key
 
 secrets:
   agent_gateway_api_keys:
-    file: ./docs/deployment/container-example/secrets/gateway-api-keys.example
+    file: ${DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE:-./docs/deployment/container-example/secrets/gateway-api-keys.example}
   agent_gateway_openai_api_key:
-    file: ./docs/deployment/container-example/secrets/openai-api-key.example
+    file: ${DEPLOYMENT_EXAMPLE_OPENAI_API_KEY_FILE:-./docs/deployment/container-example/secrets/openai-api-key.example}

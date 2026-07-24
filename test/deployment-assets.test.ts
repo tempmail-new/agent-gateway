@@ -11,20 +11,24 @@ function readRepoFile(relativePath: string): string {
 }
 
 function publishedComposePorts(compose: string): string[] {
-  return Array.from(compose.matchAll(/-\s+"(\d+):\d+"/g), (match) => match[1]).sort();
+  return Array.from(
+    compose.matchAll(/\$\{DEPLOYMENT_EXAMPLE_GATEWAY_PORT:-(\d+)\}:8080/g),
+    (match) => match[1],
+  ).sort();
 }
 
-function preflightDefaultPorts(preflightScript: string): string[] {
-  const match = preflightScript.match(/DEPLOYMENT_EXAMPLE_PORTS:-(?<ports>[^}]+)}/);
+function envDefaultValue(envScript: string, name: string): string {
+  const match = envScript.match(new RegExp(`${name}="\\$\\{${name}:-(?<value>[^}]+)\\}"`));
 
-  expect(match?.groups?.ports).toBeDefined();
+  expect(match?.groups?.value).toBeDefined();
 
-  return match?.groups?.ports.split(/\s+/).sort() ?? [];
+  return match?.groups?.value ?? "";
 }
 
 describe("deployment example assets", () => {
   it("ships a compose example using mounted secret files and readiness health", () => {
     const compose = readRepoFile("compose.deployment-example.yaml");
+    const envScript = readRepoFile("docs/deployment/container-example/env.sh");
 
     expect(compose).toContain("AGENT_GATEWAY_API_KEYS_FILE: /run/secrets/agent_gateway_api_keys");
     expect(compose).toContain(
@@ -34,12 +38,19 @@ describe("deployment example assets", () => {
     expect(compose).toContain('AGENT_GATEWAY_MAX_INPUT_BYTES: "4096"');
     expect(compose).toContain('AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES: "8192"');
     expect(compose).toContain("NODE_ENV: production");
-    expect(compose).toContain('"18080:8080"');
+    expect(compose).toContain('"${DEPLOYMENT_EXAMPLE_GATEWAY_PORT:-18080}:8080"');
     expect(compose).toContain(
-      "file: ./docs/deployment/container-example/secrets/gateway-api-keys.example",
+      "file: ${DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE:-./docs/deployment/container-example/secrets/gateway-api-keys.example}",
     );
     expect(compose).toContain(
-      "file: ./docs/deployment/container-example/secrets/openai-api-key.example",
+      "file: ${DEPLOYMENT_EXAMPLE_OPENAI_API_KEY_FILE:-./docs/deployment/container-example/secrets/openai-api-key.example}",
+    );
+    expect(envDefaultValue(envScript, "DEPLOYMENT_EXAMPLE_GATEWAY_PORT")).toBe("18080");
+    expect(envDefaultValue(envScript, "DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE")).toBe(
+      "./docs/deployment/container-example/secrets/gateway-api-keys.example",
+    );
+    expect(envDefaultValue(envScript, "DEPLOYMENT_EXAMPLE_OPENAI_API_KEY_FILE")).toBe(
+      "./docs/deployment/container-example/secrets/openai-api-key.example",
     );
   });
 
@@ -48,6 +59,9 @@ describe("deployment example assets", () => {
     const compose = readRepoFile("compose.deployment-example.yaml");
     const makefile = readRepoFile("Makefile");
     const diagnoseScript = readRepoFile("docs/deployment/container-example/diagnose.sh");
+    const envScript = readRepoFile("docs/deployment/container-example/env.sh");
+    const envExample = readRepoFile("docs/deployment/container-example/.env.local.example");
+    const gitignore = readRepoFile(".gitignore");
     const lifecycleScript = readRepoFile("docs/deployment/container-example/lifecycle.sh");
     const preflightScript = readRepoFile("docs/deployment/container-example/preflight.sh");
     const smokeScript = readRepoFile("docs/deployment/container-example/smoke.sh");
@@ -66,6 +80,10 @@ describe("deployment example assets", () => {
     expect(docs).toContain("AGENT_GATEWAY_DEFAULT_PROVIDER=echo");
     expect(docs).toContain("AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES=8192");
     expect(docs).toContain("http://localhost:18080/readyz");
+    expect(docs).toContain("docs/deployment/container-example/.env.local");
+    expect(docs).toContain("DEPLOYMENT_EXAMPLE_GATEWAY_PORT");
+    expect(docs).toContain("DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE");
+    expect(docs).toContain("DEPLOYMENT_EXAMPLE_OPENAI_API_KEY_FILE");
     expect(docs).toContain("Startup fails before listening");
     expect(docs).toContain("default deployment port `18080`");
     expect(docs).toContain("readable and non-empty");
@@ -88,7 +106,19 @@ describe("deployment example assets", () => {
     expect(diagnoseScript).toContain("compose ps --all");
     expect(diagnoseScript).toContain("docker inspect --format");
     expect(diagnoseScript).toContain("gateway readiness");
-    expect(diagnoseScript).toContain('compose logs --tail="$LOG_TAIL" gateway');
+    expect(diagnoseScript).toContain(
+      'compose logs --tail="$DEPLOYMENT_EXAMPLE_DIAGNOSE_LOG_TAIL" gateway',
+    );
+    expect(diagnoseScript).toContain(". docs/deployment/container-example/env.sh");
+    expect(envScript).toContain("DEPLOYMENT_EXAMPLE_ENV_FILE");
+    expect(envScript).toContain(".env.local");
+    expect(envScript).toContain("DEPLOYMENT_EXAMPLE_GATEWAY_URL");
+    expect(envExample).toContain("DEPLOYMENT_EXAMPLE_GATEWAY_PORT=18081");
+    expect(envExample).toContain("gateway-api-keys.local");
+    expect(envExample).toContain("openai-api-key.local");
+    expect(gitignore).toContain("docs/deployment/container-example/.env.local");
+    expect(gitignore).toContain("docs/deployment/container-example/secrets/*.local");
+    expect(lifecycleScript).toContain(". docs/deployment/container-example/env.sh");
     expect(lifecycleScript).toContain("wait_for_readyz");
     expect(lifecycleScript).toContain("wait_for_container_health");
     expect(lifecycleScript).toContain("/v1/requests");
@@ -97,16 +127,22 @@ describe("deployment example assets", () => {
     expect(lifecycleScript).toContain("docs/deployment/container-example/preflight.sh");
     expect(preflightScript).toContain("docker info");
     expect(preflightScript).toContain("docker compose version");
-    expect(preflightScript).toContain('docker compose -f "$COMPOSE_FILE" config');
-    expect(preflightScript).toContain("DEPLOYMENT_EXAMPLE_PORTS:-18080");
+    expect(preflightScript).toContain(
+      'docker compose -f "$DEPLOYMENT_EXAMPLE_COMPOSE_FILE" config',
+    );
+    expect(preflightScript).toContain(". docs/deployment/container-example/env.sh");
+    expect(preflightScript).toContain("DEPLOYMENT_EXAMPLE_GATEWAY_PORT");
     expect(preflightScript).toContain("port %s is already in use");
     expect(preflightScript).toContain("DEPLOYMENT_EXAMPLE_SECRET_FILES");
-    expect(preflightScript).toContain("gateway-api-keys.example");
-    expect(preflightScript).toContain("openai-api-key.example");
+    expect(envScript).toContain("gateway-api-keys.example");
+    expect(envScript).toContain("openai-api-key.example");
     expect(preflightScript).toContain("secret file is readable and non-empty");
     expect(preflightScript).toContain("make deployment-down");
-    expect(preflightScript).toContain("agent-gateway-deployment-example");
-    expect(preflightDefaultPorts(preflightScript)).toEqual(publishedComposePorts(compose));
+    expect(envScript).toContain("agent-gateway-deployment-example");
+    expect([envDefaultValue(envScript, "DEPLOYMENT_EXAMPLE_GATEWAY_PORT")]).toEqual(
+      publishedComposePorts(compose),
+    );
+    expect(smokeScript).toContain(". docs/deployment/container-example/env.sh");
     expect(smokeScript).toContain("verify_default_provider_validation");
     expect(smokeScript).toContain("Unknown provider 'missing'");
     expect(smokeScript).toContain("wait_for_readyz");

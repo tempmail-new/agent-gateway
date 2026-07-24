@@ -1,13 +1,10 @@
 #!/usr/bin/env sh
 set -eu
 
-COMPOSE_FILE="${DEPLOYMENT_EXAMPLE_COMPOSE_FILE:-compose.deployment-example.yaml}"
-COMPOSE_PROJECT="${DEPLOYMENT_EXAMPLE_COMPOSE_PROJECT:-agent-gateway-deployment-example}"
-GATEWAY_URL="${DEPLOYMENT_EXAMPLE_GATEWAY_URL:-http://localhost:18080}"
-LOG_TAIL="${DEPLOYMENT_EXAMPLE_DIAGNOSE_LOG_TAIL:-120}"
+. docs/deployment/container-example/env.sh
 
 compose() {
-  COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT" docker compose -f "$COMPOSE_FILE" "$@"
+  COMPOSE_PROJECT_NAME="$DEPLOYMENT_EXAMPLE_COMPOSE_PROJECT" docker compose -f "$DEPLOYMENT_EXAMPLE_COMPOSE_FILE" "$@"
 }
 
 section() {
@@ -50,7 +47,7 @@ section "compose services"
 compose ps --all || true
 
 diagnose_container_health
-diagnose_endpoint "gateway readiness" "$GATEWAY_URL/readyz"
+diagnose_endpoint "gateway readiness" "$DEPLOYMENT_EXAMPLE_GATEWAY_URL/readyz"
 
 section "recent gateway logs"
-compose logs --tail="$LOG_TAIL" gateway || true
+compose logs --tail="$DEPLOYMENT_EXAMPLE_DIAGNOSE_LOG_TAIL" gateway || true
