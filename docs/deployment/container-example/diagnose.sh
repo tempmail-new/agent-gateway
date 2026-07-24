@@ -38,6 +38,9 @@ diagnose_container_health() {
   docker inspect --format 'container={{.Name}} status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$container_id" 2>/dev/null || true
 }
 
+section "resolved deployment configuration"
+docs/deployment/container-example/config.sh || true
+
 if ! command -v docker >/dev/null 2>&1; then
   printf 'docker is not available; deployment diagnostics cannot inspect compose services\n' >&2
   exit 0
