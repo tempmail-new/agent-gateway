@@ -17,6 +17,7 @@ The compose file is `compose.deployment-example.yaml`. It keeps the container's 
 For a manual operator run, use the lifecycle targets:
 
 ```bash
+make deployment-bootstrap-secrets
 make deployment-preflight
 make deployment-up
 make deployment-ready
@@ -26,15 +27,15 @@ make deployment-logs
 make deployment-down
 ```
 
-`deployment-preflight` verifies Docker, Docker Compose, compose-file validity, default deployment port `18080` availability, stale deployment containers, and that the mounted example secret files are readable and non-empty. `deployment-up` runs the same preflight checks before starting the gateway with a build. `deployment-ready` waits for `/readyz` and the Docker healthcheck. `deployment-request` sends one authenticated echo request with the example token. `deployment-diagnose` prints compose service state, gateway container health, `/readyz`, and recent gateway logs for a failed or manually inspected run. `deployment-logs` tails gateway logs, and `deployment-down` removes the example stack.
+`deployment-bootstrap-secrets` creates the ignored local env file and local secret files from the checked-in examples when they do not already exist. `deployment-preflight` verifies Docker, Docker Compose, compose-file validity, default deployment port `18080` availability, stale deployment containers, and that the mounted example secret files are readable and non-empty. `deployment-up` runs the same preflight checks before starting the gateway with a build. `deployment-ready` waits for `/readyz` and the Docker healthcheck. `deployment-request` sends one authenticated echo request with the example token. `deployment-diagnose` prints compose service state, gateway container health, `/readyz`, and recent gateway logs for a failed or manually inspected run. `deployment-logs` tails gateway logs, and `deployment-down` removes the example stack.
 
-The lifecycle targets use the same defaults as the smoke path. Copy `docs/deployment/container-example/.env.local.example` to `docs/deployment/container-example/.env.local` when you need local overrides without editing tracked files:
+The lifecycle targets use the same defaults as the smoke path. Run the bootstrap target when you need local overrides without editing tracked files:
 
 ```bash
-cp docs/deployment/container-example/.env.local.example docs/deployment/container-example/.env.local
+make deployment-bootstrap-secrets
 ```
 
-Use that local file to set `DEPLOYMENT_EXAMPLE_GATEWAY_PORT`, `DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE`, and `DEPLOYMENT_EXAMPLE_OPENAI_API_KEY_FILE`. The helper scripts source it before running Docker Compose, so `make deployment-preflight`, `make deployment-up`, `make deployment-smoke`, and `make deployment-diagnose` all use the same port and secret-file paths. Create the referenced `*.local` secret files before running the preflight or smoke path. The local file and `*.local` secret files are ignored by Git.
+The helper creates `docs/deployment/container-example/.env.local`, `docs/deployment/container-example/secrets/gateway-api-keys.local`, and `docs/deployment/container-example/secrets/openai-api-key.local` from their tracked examples only when the files are missing. Existing local files are left untouched. Use the local env file to set `DEPLOYMENT_EXAMPLE_GATEWAY_PORT`, `DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE`, and `DEPLOYMENT_EXAMPLE_OPENAI_API_KEY_FILE`. The helper scripts source it before running Docker Compose, so `make deployment-preflight`, `make deployment-up`, `make deployment-smoke`, and `make deployment-diagnose` all use the same port and secret-file paths. The local file and `*.local` secret files are ignored by Git.
 
 You can still override `DEPLOYMENT_EXAMPLE_ENV_FILE`, `DEPLOYMENT_EXAMPLE_COMPOSE_PROJECT`, `DEPLOYMENT_EXAMPLE_GATEWAY_URL`, `DEPLOYMENT_EXAMPLE_PORTS`, `DEPLOYMENT_EXAMPLE_SECRET_FILES`, `AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN`, `DEPLOYMENT_EXAMPLE_WAIT_ATTEMPTS`, `DEPLOYMENT_EXAMPLE_WAIT_SECONDS`, or `DEPLOYMENT_EXAMPLE_DIAGNOSE_LOG_TAIL` from the shell when you need a different local env-file path, compose project, URL, token, or diagnostic log depth.
 
