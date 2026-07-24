@@ -1,5 +1,7 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
@@ -58,6 +60,7 @@ describe("deployment example assets", () => {
     const docs = [readRepoFile("README.md"), readRepoFile("docs/deployment/README.md")].join("\n");
     const compose = readRepoFile("compose.deployment-example.yaml");
     const makefile = readRepoFile("Makefile");
+    const bootstrapScript = readRepoFile("docs/deployment/container-example/bootstrap-secrets.sh");
     const diagnoseScript = readRepoFile("docs/deployment/container-example/diagnose.sh");
     const envScript = readRepoFile("docs/deployment/container-example/env.sh");
     const envExample = readRepoFile("docs/deployment/container-example/.env.local.example");
@@ -68,6 +71,7 @@ describe("deployment example assets", () => {
     const dockerfile = readRepoFile("Dockerfile");
 
     expect(docs).toContain("make deployment-smoke");
+    expect(docs).toContain("make deployment-bootstrap-secrets");
     expect(docs).toContain("make deployment-preflight");
     expect(docs).toContain("make deployment-up");
     expect(docs).toContain("make deployment-ready");
@@ -84,11 +88,15 @@ describe("deployment example assets", () => {
     expect(docs).toContain("DEPLOYMENT_EXAMPLE_GATEWAY_PORT");
     expect(docs).toContain("DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE");
     expect(docs).toContain("DEPLOYMENT_EXAMPLE_OPENAI_API_KEY_FILE");
+    expect(docs).toContain("gateway-api-keys.local");
+    expect(docs).toContain("openai-api-key.local");
     expect(docs).toContain("Startup fails before listening");
     expect(docs).toContain("default deployment port `18080`");
     expect(docs).toContain("readable and non-empty");
     expect(makefile).toContain("deployment-smoke:");
     expect(makefile).toContain("docs/deployment/container-example/smoke.sh");
+    expect(makefile).toContain("deployment-bootstrap-secrets:");
+    expect(makefile).toContain("docs/deployment/container-example/bootstrap-secrets.sh");
     expect(makefile).toContain("deployment-diagnose:");
     expect(makefile).toContain("docs/deployment/container-example/diagnose.sh");
     expect(makefile).toContain("deployment-preflight:");
@@ -103,6 +111,13 @@ describe("deployment example assets", () => {
     expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh logs");
     expect(makefile).toContain("deployment-down:");
     expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh down");
+    expect(bootstrapScript).toContain(".env.local.example");
+    expect(bootstrapScript).toContain("gateway-api-keys.example");
+    expect(bootstrapScript).toContain("openai-api-key.example");
+    expect(bootstrapScript).toContain("gateway-api-keys.local");
+    expect(bootstrapScript).toContain("openai-api-key.local");
+    expect(bootstrapScript).toContain("skip:");
+    expect(bootstrapScript).toContain("chmod 600");
     expect(diagnoseScript).toContain("compose ps --all");
     expect(diagnoseScript).toContain("docker inspect --format");
     expect(diagnoseScript).toContain("gateway readiness");
@@ -152,5 +167,59 @@ describe("deployment example assets", () => {
     expect(smokeScript).toContain("docs/deployment/container-example/diagnose.sh");
     expect(smokeScript).toContain("deployment smoke failed during");
     expect(dockerfile).toContain("/readyz");
+  });
+
+  it("bootstraps ignored local deployment secrets without overwriting existing files", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-deployment-"));
+    const envFile = path.join(tmp, ".env.local");
+    const gatewaySecret = path.join(tmp, "gateway-api-keys.local");
+    const openAISecret = path.join(tmp, "openai-api-key.local");
+
+    writeFileSync(
+      envFile,
+      [
+        `DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE=${gatewaySecret}`,
+        `DEPLOYMENT_EXAMPLE_OPENAI_API_KEY_FILE=${openAISecret}`,
+        "",
+      ].join("\n"),
+    );
+
+    try {
+      const firstRun = spawnSync("sh", ["docs/deployment/container-example/bootstrap-secrets.sh"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: { ...process.env, DEPLOYMENT_EXAMPLE_ENV_FILE: envFile },
+      });
+
+      expect(firstRun.status).toBe(0);
+      expect(firstRun.stdout).toContain("created: gateway API keys file");
+      expect(firstRun.stdout).toContain("created: OpenAI-compatible API key file");
+      expect(readFileSync(gatewaySecret, "utf8")).toBe(
+        readRepoFile("docs/deployment/container-example/secrets/gateway-api-keys.example"),
+      );
+      expect(readFileSync(openAISecret, "utf8")).toBe(
+        readRepoFile("docs/deployment/container-example/secrets/openai-api-key.example"),
+      );
+
+      writeFileSync(gatewaySecret, "custom-local-token\n");
+
+      const secondRun = spawnSync(
+        "sh",
+        ["docs/deployment/container-example/bootstrap-secrets.sh"],
+        {
+          cwd: repoRoot,
+          encoding: "utf8",
+          env: { ...process.env, DEPLOYMENT_EXAMPLE_ENV_FILE: envFile },
+        },
+      );
+
+      expect(secondRun.status).toBe(0);
+      expect(secondRun.stdout).toContain(
+        `skip: gateway API keys file already exists: ${gatewaySecret}`,
+      );
+      expect(readFileSync(gatewaySecret, "utf8")).toBe("custom-local-token\n");
+    } finally {
+      rmSync(tmp, { force: true, recursive: true });
+    }
   });
 });
