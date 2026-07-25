@@ -19,6 +19,7 @@ For a manual operator run, use the lifecycle targets:
 ```bash
 make deployment-bootstrap-secrets
 make deployment-preflight
+make deployment-config
 make deployment-up
 make deployment-ready
 make deployment-request
@@ -27,7 +28,7 @@ make deployment-logs
 make deployment-down
 ```
 
-`deployment-bootstrap-secrets` creates the ignored local env file and local secret files from the checked-in examples when they do not already exist. `deployment-preflight` verifies Docker, Docker Compose, compose-file validity, default deployment port `18080` availability, stale deployment containers, and that the mounted example secret files are readable and non-empty. `deployment-up` runs the same preflight checks before starting the gateway with a build. `deployment-ready` waits for `/readyz` and the Docker healthcheck. `deployment-request` sends one authenticated echo request with the example token. `deployment-diagnose` prints compose service state, gateway container health, `/readyz`, and recent gateway logs for a failed or manually inspected run. `deployment-logs` tails gateway logs, and `deployment-down` removes the example stack.
+`deployment-bootstrap-secrets` creates the ignored local env file and local secret files from the checked-in examples when they do not already exist. `deployment-preflight` verifies Docker, Docker Compose, compose-file validity, default deployment port `18080` availability, stale deployment containers, and that the mounted example secret files are readable and non-empty. `deployment-config` prints the resolved local env file, compose project, gateway URL, checked ports, and secret file paths/status without printing secret values. `deployment-up` runs the same preflight checks before starting the gateway with a build. `deployment-ready` waits for `/readyz` and the Docker healthcheck. `deployment-request` sends one authenticated echo request with the example token. `deployment-diagnose` prints resolved configuration, compose service state, gateway container health, `/readyz`, and recent gateway logs for a failed or manually inspected run. `deployment-logs` tails gateway logs, and `deployment-down` removes the example stack.
 
 The lifecycle targets use the same defaults as the smoke path. Run the bootstrap target when you need local overrides without editing tracked files:
 
