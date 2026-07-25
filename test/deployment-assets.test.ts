@@ -1,4 +1,12 @@
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -81,6 +89,7 @@ describe("deployment example assets", () => {
     expect(docs).toContain("make deployment-diagnose");
     expect(docs).toContain("make deployment-logs");
     expect(docs).toContain("make deployment-down");
+    expect(docs).toContain("make deployment-reset");
     expect(docs).toContain("mounted secret files");
     expect(docs).toContain("request-size guardrails");
     expect(docs).toContain("AGENT_GATEWAY_DEFAULT_PROVIDER=echo");
@@ -96,6 +105,7 @@ describe("deployment example assets", () => {
     expect(docs).toContain("Startup fails before listening");
     expect(docs).toContain("default deployment port `18080`");
     expect(docs).toContain("readable and non-empty");
+    expect(docs).toContain("without touching tracked `.example` files");
     expect(makefile).toContain("deployment-smoke:");
     expect(makefile).toContain("docs/deployment/container-example/smoke.sh");
     expect(makefile).toContain("deployment-bootstrap-secrets:");
@@ -114,6 +124,8 @@ describe("deployment example assets", () => {
     expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh ready");
     expect(makefile).toContain("deployment-request:");
     expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh request");
+    expect(makefile).toContain("deployment-reset:");
+    expect(makefile).toContain("docs/deployment/container-example/reset.sh");
     expect(makefile).toContain("deployment-logs:");
     expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh logs");
     expect(makefile).toContain("deployment-down:");
@@ -130,6 +142,9 @@ describe("deployment example assets", () => {
     );
     expect(readRepoFile("docs/deployment/container-example/checklist.sh")).toContain(
       "make deployment-bootstrap-secrets",
+    );
+    expect(readRepoFile("docs/deployment/container-example/checklist.sh")).toContain(
+      "make deployment-reset",
     );
     expect(bootstrapScript).toContain("gateway-api-keys.example");
     expect(bootstrapScript).toContain("openai-api-key.example");
@@ -185,6 +200,13 @@ describe("deployment example assets", () => {
     );
     expect(readRepoFile("docs/deployment/container-example/config.sh")).toContain(
       "readable-non-empty",
+    );
+    expect(readRepoFile("docs/deployment/container-example/reset.sh")).toContain(
+      "deployment local reset",
+    );
+    expect(readRepoFile("docs/deployment/container-example/reset.sh")).toContain("*.local");
+    expect(readRepoFile("docs/deployment/container-example/reset.sh")).toContain(
+      "preserve: %s is not a .local file",
     );
     expect(envScript).toContain("agent-gateway-deployment-example");
     expect([envDefaultValue(envScript, "DEPLOYMENT_EXAMPLE_GATEWAY_PORT")]).toEqual(
@@ -291,6 +313,55 @@ describe("deployment example assets", () => {
       expect(result.stdout).toContain(`openai_api_key_file=${openAISecret} (readable-non-empty)`);
       expect(result.stdout).not.toContain("super-secret-gateway-token");
       expect(result.stdout).not.toContain("super-secret-provider-token");
+    } finally {
+      rmSync(tmp, { force: true, recursive: true });
+    }
+  });
+
+  it("resets ignored local deployment files without removing tracked examples", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-deployment-reset-"));
+    const envFile = path.join(tmp, ".env.local");
+    const gatewaySecret = path.join(tmp, "gateway-api-keys.local");
+    const openAISecret = path.join(tmp, "openai-api-key.local");
+    const gatewayExample = path.join(
+      repoRoot,
+      "docs/deployment/container-example/secrets/gateway-api-keys.example",
+    );
+    const openAIExample = path.join(
+      repoRoot,
+      "docs/deployment/container-example/secrets/openai-api-key.example",
+    );
+    const gatewayExampleBefore = readFileSync(gatewayExample, "utf8");
+    const openAIExampleBefore = readFileSync(openAIExample, "utf8");
+
+    writeFileSync(gatewaySecret, "local-gateway-token\n");
+    writeFileSync(openAISecret, "local-provider-token\n");
+    writeFileSync(
+      envFile,
+      [
+        `DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE=${gatewaySecret}`,
+        `DEPLOYMENT_EXAMPLE_OPENAI_API_KEY_FILE=${openAISecret}`,
+        "",
+      ].join("\n"),
+    );
+
+    try {
+      const result = spawnSync("sh", ["docs/deployment/container-example/reset.sh"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: { ...process.env, DEPLOYMENT_EXAMPLE_ENV_FILE: envFile },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("deployment local reset");
+      expect(result.stdout).toContain(`removed: gateway API keys file: ${gatewaySecret}`);
+      expect(result.stdout).toContain(`removed: OpenAI-compatible API key file: ${openAISecret}`);
+      expect(result.stdout).toContain(`removed: deployment env file: ${envFile}`);
+      expect(existsSync(envFile)).toBe(false);
+      expect(existsSync(gatewaySecret)).toBe(false);
+      expect(existsSync(openAISecret)).toBe(false);
+      expect(readFileSync(gatewayExample, "utf8")).toBe(gatewayExampleBefore);
+      expect(readFileSync(openAIExample, "utf8")).toBe(openAIExampleBefore);
     } finally {
       rmSync(tmp, { force: true, recursive: true });
     }
