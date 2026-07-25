@@ -80,6 +80,7 @@ describe("deployment example assets", () => {
 
     expect(docs).toContain("make deployment-smoke");
     expect(docs).toContain("make deployment-bootstrap-secrets");
+    expect(docs).toContain("make deployment-help");
     expect(docs).toContain("make deployment-checklist");
     expect(docs).toContain("make deployment-preflight");
     expect(docs).toContain("make deployment-config");
@@ -116,6 +117,8 @@ describe("deployment example assets", () => {
     expect(makefile).toContain("docs/deployment/container-example/config.sh");
     expect(makefile).toContain("deployment-diagnose:");
     expect(makefile).toContain("docs/deployment/container-example/diagnose.sh");
+    expect(makefile).toContain("deployment-help:");
+    expect(makefile).toContain("docs/deployment/container-example/help.sh");
     expect(makefile).toContain("deployment-preflight:");
     expect(makefile).toContain("docs/deployment/container-example/preflight.sh");
     expect(makefile).toContain("deployment-up:");
@@ -207,6 +210,13 @@ describe("deployment example assets", () => {
     expect(readRepoFile("docs/deployment/container-example/reset.sh")).toContain("*.local");
     expect(readRepoFile("docs/deployment/container-example/reset.sh")).toContain(
       "preserve: %s is not a .local file",
+    );
+    expect(readRepoFile("docs/deployment/container-example/help.sh")).toContain(
+      "deployment example command help",
+    );
+    expect(readRepoFile("docs/deployment/container-example/help.sh")).toContain("override knobs");
+    expect(readRepoFile("docs/deployment/container-example/help.sh")).toContain(
+      "DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE",
     );
     expect(envScript).toContain("agent-gateway-deployment-example");
     expect([envDefaultValue(envScript, "DEPLOYMENT_EXAMPLE_GATEWAY_PORT")]).toEqual(
@@ -313,6 +323,41 @@ describe("deployment example assets", () => {
       expect(result.stdout).toContain(`openai_api_key_file=${openAISecret} (readable-non-empty)`);
       expect(result.stdout).not.toContain("super-secret-gateway-token");
       expect(result.stdout).not.toContain("super-secret-provider-token");
+    } finally {
+      rmSync(tmp, { force: true, recursive: true });
+    }
+  });
+
+  it("prints deployment command help with resolved overrides", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-deployment-help-"));
+    const envFile = path.join(tmp, ".env.local");
+
+    writeFileSync(
+      envFile,
+      [
+        "DEPLOYMENT_EXAMPLE_GATEWAY_PORT=19081",
+        "DEPLOYMENT_EXAMPLE_COMPOSE_PROJECT=help-test",
+        "",
+      ].join("\n"),
+    );
+
+    try {
+      const result = spawnSync("sh", ["docs/deployment/container-example/help.sh"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: { ...process.env, DEPLOYMENT_EXAMPLE_ENV_FILE: envFile },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("deployment example command help");
+      expect(result.stdout).toContain("make deployment-smoke");
+      expect(result.stdout).toContain("make deployment-bootstrap-secrets");
+      expect(result.stdout).toContain("make deployment-reset");
+      expect(result.stdout).toContain(`env_file=${envFile}`);
+      expect(result.stdout).toContain("compose_project=help-test");
+      expect(result.stdout).toContain("gateway_url=http://localhost:19081");
+      expect(result.stdout).toContain("DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE");
+      expect(result.stdout).toContain("AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN");
     } finally {
       rmSync(tmp, { force: true, recursive: true });
     }
