@@ -32,6 +32,7 @@ print_command_order() {
   printf "7. make deployment-request\n"
   printf "8. make deployment-diagnose\n"
   printf "9. make deployment-down\n"
+  printf "10. make deployment-reset\n"
 }
 
 check_env_file() {
