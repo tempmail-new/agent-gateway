@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -72,6 +72,7 @@ describe("deployment example assets", () => {
 
     expect(docs).toContain("make deployment-smoke");
     expect(docs).toContain("make deployment-bootstrap-secrets");
+    expect(docs).toContain("make deployment-checklist");
     expect(docs).toContain("make deployment-preflight");
     expect(docs).toContain("make deployment-config");
     expect(docs).toContain("make deployment-up");
@@ -99,6 +100,8 @@ describe("deployment example assets", () => {
     expect(makefile).toContain("docs/deployment/container-example/smoke.sh");
     expect(makefile).toContain("deployment-bootstrap-secrets:");
     expect(makefile).toContain("docs/deployment/container-example/bootstrap-secrets.sh");
+    expect(makefile).toContain("deployment-checklist:");
+    expect(makefile).toContain("docs/deployment/container-example/checklist.sh");
     expect(makefile).toContain("deployment-config:");
     expect(makefile).toContain("docs/deployment/container-example/config.sh");
     expect(makefile).toContain("deployment-diagnose:");
@@ -116,6 +119,18 @@ describe("deployment example assets", () => {
     expect(makefile).toContain("deployment-down:");
     expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh down");
     expect(bootstrapScript).toContain(".env.local.example");
+    expect(readRepoFile("docs/deployment/container-example/checklist.sh")).toContain(
+      "deployment first-run checklist",
+    );
+    expect(readRepoFile("docs/deployment/container-example/checklist.sh")).toContain(
+      "preferred manual command order",
+    );
+    expect(readRepoFile("docs/deployment/container-example/checklist.sh")).toContain(
+      "Docker Compose plugin is available",
+    );
+    expect(readRepoFile("docs/deployment/container-example/checklist.sh")).toContain(
+      "make deployment-bootstrap-secrets",
+    );
     expect(bootstrapScript).toContain("gateway-api-keys.example");
     expect(bootstrapScript).toContain("openai-api-key.example");
     expect(bootstrapScript).toContain("gateway-api-keys.local");
@@ -276,6 +291,111 @@ describe("deployment example assets", () => {
       expect(result.stdout).toContain(`openai_api_key_file=${openAISecret} (readable-non-empty)`);
       expect(result.stdout).not.toContain("super-secret-gateway-token");
       expect(result.stdout).not.toContain("super-secret-provider-token");
+    } finally {
+      rmSync(tmp, { force: true, recursive: true });
+    }
+  });
+
+  it("checks first-run deployment setup with local overrides before startup", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-deployment-checklist-"));
+    const envFile = path.join(tmp, ".env.local");
+    const gatewaySecret = path.join(tmp, "gateway-api-keys.local");
+    const openAISecret = path.join(tmp, "openai-api-key.local");
+    const fakeBin = path.join(tmp, "bin");
+    const dockerShim = path.join(fakeBin, "docker");
+
+    mkdirSync(fakeBin);
+    writeFileSync(gatewaySecret, "local-gateway-token\n");
+    writeFileSync(openAISecret, "local-provider-token\n");
+    writeFileSync(
+      envFile,
+      [
+        "DEPLOYMENT_EXAMPLE_GATEWAY_PORT=19080",
+        `DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE=${gatewaySecret}`,
+        `DEPLOYMENT_EXAMPLE_OPENAI_API_KEY_FILE=${openAISecret}`,
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(
+      dockerShim,
+      [
+        "#!/usr/bin/env sh",
+        'if [ "$1" = "info" ]; then exit 0; fi',
+        'if [ "$1" = "compose" ] && [ "$2" = "version" ]; then exit 0; fi',
+        "exit 1",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(fakeBin, 0o755);
+    chmodSync(dockerShim, 0o755);
+
+    try {
+      const result = spawnSync("sh", ["docs/deployment/container-example/checklist.sh"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          DEPLOYMENT_EXAMPLE_ENV_FILE: envFile,
+          PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+        },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain(`ok: deployment env file exists: ${envFile}`);
+      expect(result.stdout).toContain(
+        `ok: gateway API keys file is local, readable, and non-empty: ${gatewaySecret}`,
+      );
+      expect(result.stdout).toContain(
+        `ok: OpenAI-compatible API key file is local, readable, and non-empty: ${openAISecret}`,
+      );
+      expect(result.stdout).toContain("ok: Docker daemon is reachable");
+      expect(result.stdout).toContain("ok: Docker Compose plugin is available");
+      expect(result.stdout).toContain("1. make deployment-bootstrap-secrets");
+      expect(result.stdout).toContain("deployment first-run checklist passed");
+    } finally {
+      rmSync(tmp, { force: true, recursive: true });
+    }
+  });
+
+  it("fails the first-run checklist until ignored local deployment files exist", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-deployment-checklist-"));
+    const envFile = path.join(tmp, ".env.local");
+    const fakeBin = path.join(tmp, "bin");
+    const dockerShim = path.join(fakeBin, "docker");
+
+    mkdirSync(fakeBin);
+    writeFileSync(
+      dockerShim,
+      [
+        "#!/usr/bin/env sh",
+        'if [ "$1" = "info" ]; then exit 0; fi',
+        'if [ "$1" = "compose" ] && [ "$2" = "version" ]; then exit 0; fi',
+        "exit 1",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(fakeBin, 0o755);
+    chmodSync(dockerShim, 0o755);
+
+    try {
+      const result = spawnSync("sh", ["docs/deployment/container-example/checklist.sh"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          DEPLOYMENT_EXAMPLE_ENV_FILE: envFile,
+          PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+        },
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(`missing: deployment env file: ${envFile}`);
+      expect(result.stderr).toContain("Run 'make deployment-bootstrap-secrets'");
+      expect(result.stderr).toContain(
+        "gateway API keys file still points at the checked-in example",
+      );
+      expect(result.stderr).toContain("deployment first-run checklist failed");
+      expect(result.stdout).toContain("preferred manual command order");
     } finally {
       rmSync(tmp, { force: true, recursive: true });
     }
