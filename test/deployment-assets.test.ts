@@ -87,6 +87,7 @@ describe("deployment example assets", () => {
     expect(docs).toContain("make deployment-up");
     expect(docs).toContain("make deployment-ready");
     expect(docs).toContain("make deployment-request");
+    expect(docs).toContain("make deployment-status");
     expect(docs).toContain("make deployment-diagnose");
     expect(docs).toContain("make deployment-logs");
     expect(docs).toContain("make deployment-down");
@@ -127,6 +128,8 @@ describe("deployment example assets", () => {
     expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh ready");
     expect(makefile).toContain("deployment-request:");
     expect(makefile).toContain("docs/deployment/container-example/lifecycle.sh request");
+    expect(makefile).toContain("deployment-status:");
+    expect(makefile).toContain("docs/deployment/container-example/status.sh");
     expect(makefile).toContain("deployment-reset:");
     expect(makefile).toContain("docs/deployment/container-example/reset.sh");
     expect(makefile).toContain("deployment-logs:");
@@ -217,9 +220,30 @@ describe("deployment example assets", () => {
     expect(readRepoFile("docs/deployment/container-example/help.sh")).toContain(
       "deployment example command help",
     );
+    expect(readRepoFile("docs/deployment/container-example/help.sh")).toContain(
+      "make deployment-status",
+    );
     expect(readRepoFile("docs/deployment/container-example/help.sh")).toContain("override knobs");
     expect(readRepoFile("docs/deployment/container-example/help.sh")).toContain(
       "DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE",
+    );
+    expect(readRepoFile("docs/deployment/container-example/status.sh")).toContain(
+      "deployment example status",
+    );
+    expect(readRepoFile("docs/deployment/container-example/status.sh")).toContain(
+      ". docs/deployment/container-example/env.sh",
+    );
+    expect(readRepoFile("docs/deployment/container-example/status.sh")).toContain(
+      "compose ps --all",
+    );
+    expect(readRepoFile("docs/deployment/container-example/status.sh")).toContain(
+      "gateway readiness",
+    );
+    expect(readRepoFile("docs/deployment/container-example/status.sh")).toContain(
+      "docker inspect --format",
+    );
+    expect(readRepoFile("docs/deployment/container-example/status.sh")).not.toContain(
+      "compose logs",
     );
     expect(envScript).toContain("agent-gateway-deployment-example");
     expect([envDefaultValue(envScript, "DEPLOYMENT_EXAMPLE_GATEWAY_PORT")]).toEqual(
@@ -361,6 +385,84 @@ describe("deployment example assets", () => {
       expect(result.stdout).toContain("gateway_url=http://localhost:19081");
       expect(result.stdout).toContain("DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE");
       expect(result.stdout).toContain("AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN");
+    } finally {
+      rmSync(tmp, { force: true, recursive: true });
+    }
+  });
+
+  it("prints compact deployment status without gateway logs", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-deployment-status-"));
+    const envFile = path.join(tmp, ".env.local");
+    const fakeBin = path.join(tmp, "bin");
+    const curlShim = path.join(fakeBin, "curl");
+    const dockerShim = path.join(fakeBin, "docker");
+
+    mkdirSync(fakeBin);
+    writeFileSync(
+      envFile,
+      [
+        "DEPLOYMENT_EXAMPLE_GATEWAY_PORT=19083",
+        "DEPLOYMENT_EXAMPLE_COMPOSE_PROJECT=status-test",
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(curlShim, '#!/usr/bin/env sh\nprintf "%s\\n" "{\\"status\\":\\"ready\\"}"\n');
+    writeFileSync(
+      dockerShim,
+      [
+        "#!/usr/bin/env sh",
+        'if [ "$1" = "compose" ]; then',
+        "  shift",
+        '  if [ "$1" = "-f" ]; then shift 2; fi',
+        '  if [ "$1" = "ps" ] && [ "$2" = "--all" ]; then',
+        '    printf "%s\\n" "NAME SERVICE STATUS"',
+        '    printf "%s\\n" "gateway gateway running"',
+        "    exit 0",
+        "  fi",
+        '  if [ "$1" = "ps" ] && [ "$2" = "-q" ]; then',
+        '    printf "%s\\n" "fake-gateway-id"',
+        "    exit 0",
+        "  fi",
+        '  if [ "$1" = "logs" ]; then',
+        '    printf "%s\\n" "unexpected logs"',
+        "    exit 0",
+        "  fi",
+        "fi",
+        'if [ "$1" = "inspect" ]; then',
+        '  printf "%s\\n" "container=/gateway status=running health=healthy"',
+        "  exit 0",
+        "fi",
+        "exit 0",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(fakeBin, 0o755);
+    chmodSync(curlShim, 0o755);
+    chmodSync(dockerShim, 0o755);
+
+    try {
+      const result = spawnSync("sh", ["docs/deployment/container-example/status.sh"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          DEPLOYMENT_EXAMPLE_ENV_FILE: envFile,
+          PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+        },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("deployment example status");
+      expect(result.stdout).toContain(`env_file=${envFile}`);
+      expect(result.stdout).toContain("compose_project=status-test");
+      expect(result.stdout).toContain("gateway_url=http://localhost:19083");
+      expect(result.stdout).toContain("--- compose services ---");
+      expect(result.stdout).toContain("gateway gateway running");
+      expect(result.stdout).toContain("--- gateway readiness: http://localhost:19083/readyz ---");
+      expect(result.stdout).toContain('{"status":"ready"}');
+      expect(result.stdout).toContain("--- gateway container health ---");
+      expect(result.stdout).toContain("container=/gateway status=running health=healthy");
+      expect(result.stdout).not.toContain("unexpected logs");
     } finally {
       rmSync(tmp, { force: true, recursive: true });
     }

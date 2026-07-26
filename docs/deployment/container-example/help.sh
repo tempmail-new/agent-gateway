@@ -20,6 +20,7 @@ printf "  make deployment-ready              wait for /readyz and Docker healthc
 printf "  make deployment-request            send one authenticated echo request\n"
 printf "\n"
 printf "inspection and cleanup\n"
+printf "  make deployment-status             print compose state, readiness, and container health\n"
 printf "  make deployment-diagnose           print config, compose state, readiness, health, and recent logs\n"
 printf "  make deployment-logs               tail gateway logs\n"
 printf "  make deployment-down               stop and remove the example stack\n"

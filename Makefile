@@ -1,7 +1,7 @@
 OBSERVABILITY_COMPOSE_PROJECT ?= agent-gateway-observability-demo
 OBSERVABILITY_COMPOSE := COMPOSE_PROJECT_NAME=$(OBSERVABILITY_COMPOSE_PROJECT) docker compose -f compose.observability.yaml
 
-.PHONY: benchmark-text-image build deployment-bootstrap-secrets deployment-checklist deployment-config deployment-diagnose deployment-down deployment-help deployment-logs deployment-preflight deployment-ready deployment-request deployment-reset deployment-smoke deployment-up fmt fmt-check lint observability-down observability-inspect observability-logs observability-preflight observability-ready observability-smoke observability-traffic observability-up test validate
+.PHONY: benchmark-text-image build deployment-bootstrap-secrets deployment-checklist deployment-config deployment-diagnose deployment-down deployment-help deployment-logs deployment-preflight deployment-ready deployment-request deployment-reset deployment-smoke deployment-status deployment-up fmt fmt-check lint observability-down observability-inspect observability-logs observability-preflight observability-ready observability-smoke observability-traffic observability-up test validate
 
 build:
 	npm run build
@@ -40,6 +40,9 @@ deployment-diagnose:
 
 deployment-help:
 	docs/deployment/container-example/help.sh
+
+deployment-status:
+	docs/deployment/container-example/status.sh
 
 deployment-preflight:
 	docs/deployment/container-example/preflight.sh
