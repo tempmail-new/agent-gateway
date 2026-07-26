@@ -173,8 +173,11 @@ describe("deployment example assets", () => {
     expect(gitignore).toContain("docs/deployment/container-example/.env.local");
     expect(gitignore).toContain("docs/deployment/container-example/secrets/*.local");
     expect(lifecycleScript).toContain(". docs/deployment/container-example/env.sh");
+    expect(lifecycleScript).toContain("finish_ready");
     expect(lifecycleScript).toContain("wait_for_readyz");
     expect(lifecycleScript).toContain("wait_for_container_health");
+    expect(lifecycleScript).toContain("deployment ready failed; running deployment diagnostics");
+    expect(lifecycleScript).toContain("docs/deployment/container-example/diagnose.sh >&2 || true");
     expect(lifecycleScript).toContain("/v1/requests");
     expect(lifecycleScript).toContain("compose logs -f");
     expect(lifecycleScript).toContain("compose down --remove-orphans");
@@ -407,6 +410,82 @@ describe("deployment example assets", () => {
       expect(existsSync(openAISecret)).toBe(false);
       expect(readFileSync(gatewayExample, "utf8")).toBe(gatewayExampleBefore);
       expect(readFileSync(openAIExample, "utf8")).toBe(openAIExampleBefore);
+    } finally {
+      rmSync(tmp, { force: true, recursive: true });
+    }
+  });
+
+  it("prints diagnostics when manual deployment readiness fails", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-deployment-ready-"));
+    const envFile = path.join(tmp, ".env.local");
+    const fakeBin = path.join(tmp, "bin");
+    const curlShim = path.join(fakeBin, "curl");
+    const dockerShim = path.join(fakeBin, "docker");
+
+    mkdirSync(fakeBin);
+    writeFileSync(envFile, "DEPLOYMENT_EXAMPLE_GATEWAY_PORT=19082\n");
+    writeFileSync(curlShim, "#!/usr/bin/env sh\nexit 22\n");
+    writeFileSync(
+      dockerShim,
+      [
+        "#!/usr/bin/env sh",
+        'if [ "$1" = "compose" ]; then',
+        "  shift",
+        '  if [ "$1" = "-f" ]; then shift 2; fi',
+        '  if [ "$1" = "ps" ] && [ "$2" = "--all" ]; then',
+        '    printf "%s\\n" "fake compose services"',
+        "    exit 0",
+        "  fi",
+        '  if [ "$1" = "ps" ] && [ "$2" = "-q" ]; then',
+        '    printf "%s\\n" "fake-gateway-id"',
+        "    exit 0",
+        "  fi",
+        '  if [ "$1" = "logs" ]; then',
+        '    printf "%s\\n" "recent gateway logs"',
+        "    exit 0",
+        "  fi",
+        "fi",
+        'if [ "$1" = "inspect" ]; then',
+        '  printf "%s\\n" "container=/gateway status=running health=starting"',
+        "  exit 0",
+        "fi",
+        "exit 0",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(fakeBin, 0o755);
+    chmodSync(curlShim, 0o755);
+    chmodSync(dockerShim, 0o755);
+
+    try {
+      const result = spawnSync("sh", ["docs/deployment/container-example/lifecycle.sh", "ready"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          DEPLOYMENT_EXAMPLE_ENV_FILE: envFile,
+          DEPLOYMENT_EXAMPLE_WAIT_ATTEMPTS: "1",
+          DEPLOYMENT_EXAMPLE_WAIT_SECONDS: "0",
+          PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+        },
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        "deployment example failed: http://localhost:19082/readyz did not become ready",
+      );
+      expect(result.stderr).toContain("deployment ready failed; running deployment diagnostics");
+      expect(result.stderr).toContain("--- resolved deployment configuration ---");
+      expect(result.stderr).toContain("deployment example resolved configuration");
+      expect(result.stderr).toContain("gateway_port=19082");
+      expect(result.stderr).toContain("--- compose services ---");
+      expect(result.stderr).toContain("fake compose services");
+      expect(result.stderr).toContain("--- gateway container health ---");
+      expect(result.stderr).toContain("container=/gateway status=running health=starting");
+      expect(result.stderr).toContain("--- gateway readiness: http://localhost:19082/readyz ---");
+      expect(result.stderr).toContain("unavailable");
+      expect(result.stderr).toContain("--- recent gateway logs ---");
+      expect(result.stderr).toContain("recent gateway logs");
     } finally {
       rmSync(tmp, { force: true, recursive: true });
     }

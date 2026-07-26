@@ -21,6 +21,18 @@ fail() {
   exit 1
 }
 
+finish_ready() {
+  status="$1"
+  trap - EXIT
+
+  if [ "$status" -ne 0 ]; then
+    printf '\ndeployment ready failed; running deployment diagnostics\n' >&2
+    docs/deployment/container-example/diagnose.sh >&2 || true
+  fi
+
+  exit "$status"
+}
+
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
     fail "$1 is required"
@@ -79,8 +91,10 @@ up() {
 ready() {
   require_command curl
   require_command docker
+  trap 'finish_ready "$?"' EXIT
   wait_for_readyz
   wait_for_container_health
+  trap - EXIT
 }
 
 request() {
