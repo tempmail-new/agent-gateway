@@ -99,16 +99,78 @@ ready() {
 
 request() {
   require_command curl
-  response="$(
-    curl -fsS "$DEPLOYMENT_EXAMPLE_GATEWAY_URL/v1/requests" \
+
+  body_file="$(mktemp)"
+  error_file="$(mktemp)"
+
+  set +e
+  http_status="$(
+    curl -sS -o "$body_file" -w "%{http_code}" "$DEPLOYMENT_EXAMPLE_GATEWAY_URL/v1/requests" \
       -H "authorization: Bearer $SMOKE_TOKEN" \
       -H "content-type: application/json" \
-      -d '{"model":"local-test","input":"deployment helper request"}'
+      -d '{"model":"local-test","input":"deployment helper request"}' \
+      2>"$error_file"
   )"
+  curl_status="$?"
+  set -e
 
-  printf '%s\n' "$response" | grep -q '"provider":"echo"' || fail "request did not use echo provider"
-  printf '%s\n' "$response" | grep -q '"model":"local-test"' || fail "request returned an unexpected model"
+  if [ "$curl_status" -ne 0 ]; then
+    printf '%s\n' "deployment request failed: curl exited with status $curl_status while calling $DEPLOYMENT_EXAMPLE_GATEWAY_URL/v1/requests" >&2
+    if [ -s "$error_file" ]; then
+      printf '\n--- curl error ---\n' >&2
+      cat "$error_file" >&2
+    fi
+    request_diagnostics
+    rm -f "$body_file" "$error_file"
+    exit 1
+  fi
+
+  if [ "$http_status" -lt 200 ] || [ "$http_status" -gt 299 ]; then
+    printf '%s\n' "deployment request failed: HTTP status $http_status from $DEPLOYMENT_EXAMPLE_GATEWAY_URL/v1/requests" >&2
+    print_request_body "$body_file" >&2
+    request_diagnostics
+    rm -f "$body_file" "$error_file"
+    exit 1
+  fi
+
+  response="$(cat "$body_file")"
+  if ! printf '%s\n' "$response" | grep -q '"provider":"echo"'; then
+    printf '%s\n' "deployment request failed: response did not use echo provider" >&2
+    print_request_body "$body_file" >&2
+    request_diagnostics
+    rm -f "$body_file" "$error_file"
+    exit 1
+  fi
+
+  if ! printf '%s\n' "$response" | grep -q '"model":"local-test"'; then
+    printf '%s\n' "deployment request failed: response returned an unexpected model" >&2
+    print_request_body "$body_file" >&2
+    request_diagnostics
+    rm -f "$body_file" "$error_file"
+    exit 1
+  fi
+
+  rm -f "$body_file" "$error_file"
   printf '%s\n' "$response"
+}
+
+print_request_body() {
+  body_file="$1"
+
+  printf '\n--- response body ---\n' >&2
+  if [ -s "$body_file" ]; then
+    cat "$body_file" >&2
+  else
+    printf 'empty\n' >&2
+  fi
+}
+
+request_diagnostics() {
+  printf '\n%s\n' "deployment request failed; running deployment status" >&2
+  docs/deployment/container-example/status.sh >&2 || true
+
+  printf '\n%s\n' "deployment request failed; running deployment diagnostics" >&2
+  docs/deployment/container-example/diagnose.sh >&2 || true
 }
 
 logs() {
