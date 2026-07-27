@@ -85,6 +85,38 @@ check_command() {
   return 1
 }
 
+check_gateway_request_token() {
+  if node - "$DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE" "$AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN" <<'NODE'
+const fs = require("node:fs");
+
+const file = process.argv[process.argv.length - 2];
+const requestToken = process.argv[process.argv.length - 1];
+let value;
+
+try {
+  value = fs.readFileSync(file, "utf8");
+} catch {
+  process.exit(1);
+}
+
+const tokens = value
+  .split(",")
+  .map((token) => token.trim())
+  .filter(Boolean);
+
+process.exit(tokens.includes(requestToken) ? 0 : 1);
+NODE
+  then
+    print_ok "deployment request token is present in gateway API keys file"
+    return 0
+  fi
+
+  printf "gateway API keys file does not include the deployment request token\n" >&2
+  printf "Add the token to %s, or set AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN to one of the configured gateway API keys.\n" "$DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE" >&2
+  mark_failed
+  return 1
+}
+
 printf "deployment first-run checklist\n"
 
 check_env_file || true
@@ -109,7 +141,9 @@ if check_command "docker" "Install Docker Desktop or Docker Engine before starti
   fi
 fi
 
-check_command "node" "Install Node.js 22 or newer so deployment-preflight can verify local ports and secret file contents." || true
+if check_command "node" "Install Node.js 22 or newer so deployment-preflight can verify local ports and secret file contents."; then
+  check_gateway_request_token || true
+fi
 
 print_command_order
 

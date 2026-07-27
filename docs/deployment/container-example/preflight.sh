@@ -95,6 +95,38 @@ NODE
   return 1
 }
 
+check_gateway_request_token() {
+  if node - "$DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE" "$AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN" <<'NODE'
+const fs = require("node:fs");
+
+const file = process.argv[process.argv.length - 2];
+const requestToken = process.argv[process.argv.length - 1];
+let value;
+
+try {
+  value = fs.readFileSync(file, "utf8");
+} catch {
+  process.exit(1);
+}
+
+const tokens = value
+  .split(",")
+  .map((token) => token.trim())
+  .filter(Boolean);
+
+process.exit(tokens.includes(requestToken) ? 0 : 1);
+NODE
+  then
+    printf "ok: deployment request token is present in gateway API keys file\n"
+    return 0
+  fi
+
+  printf "gateway API keys file does not include the deployment request token\n" >&2
+  printf "Add the token to %s, or set AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN to one of the configured gateway API keys.\n" "$DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE" >&2
+  mark_failed
+  return 1
+}
+
 if require_command "docker" "Install Docker Desktop or Docker Engine, then retry make deployment-smoke."; then
   if docker info >/dev/null 2>&1; then
     printf "ok: Docker daemon is reachable\n"
@@ -121,6 +153,8 @@ if require_command "node" "Install Node.js 22 or newer so the preflight can veri
   for secret_file in $DEPLOYMENT_EXAMPLE_SECRET_FILES; do
     check_secret_file "$secret_file" || true
   done
+
+  check_gateway_request_token || true
 fi
 
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then

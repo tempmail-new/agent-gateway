@@ -152,6 +152,9 @@ describe("deployment example assets", () => {
     expect(readRepoFile("docs/deployment/container-example/checklist.sh")).toContain(
       "make deployment-reset",
     );
+    expect(readRepoFile("docs/deployment/container-example/checklist.sh")).toContain(
+      "deployment request token is present in gateway API keys file",
+    );
     expect(bootstrapScript).toContain("gateway-api-keys.example");
     expect(bootstrapScript).toContain("openai-api-key.example");
     expect(bootstrapScript).toContain("gateway-api-keys.local");
@@ -196,7 +199,11 @@ describe("deployment example assets", () => {
     expect(preflightScript).toContain("DEPLOYMENT_EXAMPLE_SECRET_FILES");
     expect(envScript).toContain("gateway-api-keys.example");
     expect(envScript).toContain("openai-api-key.example");
+    expect(envScript).toContain("AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN");
     expect(preflightScript).toContain("secret file is readable and non-empty");
+    expect(preflightScript).toContain(
+      "deployment request token is present in gateway API keys file",
+    );
     expect(preflightScript).toContain("make deployment-down");
     expect(readRepoFile("docs/deployment/container-example/config.sh")).toContain(
       "deployment example resolved configuration",
@@ -632,6 +639,7 @@ describe("deployment example assets", () => {
         encoding: "utf8",
         env: {
           ...process.env,
+          AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN: "local-gateway-token",
           DEPLOYMENT_EXAMPLE_ENV_FILE: envFile,
           PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
         },
@@ -644,6 +652,9 @@ describe("deployment example assets", () => {
       );
       expect(result.stdout).toContain(
         `ok: OpenAI-compatible API key file is local, readable, and non-empty: ${openAISecret}`,
+      );
+      expect(result.stdout).toContain(
+        "ok: deployment request token is present in gateway API keys file",
       );
       expect(result.stdout).toContain("ok: Docker daemon is reachable");
       expect(result.stdout).toContain("ok: Docker Compose plugin is available");
@@ -693,6 +704,64 @@ describe("deployment example assets", () => {
       );
       expect(result.stderr).toContain("deployment first-run checklist failed");
       expect(result.stdout).toContain("preferred manual command order");
+    } finally {
+      rmSync(tmp, { force: true, recursive: true });
+    }
+  });
+
+  it("fails deployment preflight when the request token is not in the gateway API keys file", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-deployment-preflight-"));
+    const envFile = path.join(tmp, ".env.local");
+    const gatewaySecret = path.join(tmp, "gateway-api-keys.local");
+    const openAISecret = path.join(tmp, "openai-api-key.local");
+    const fakeBin = path.join(tmp, "bin");
+    const dockerShim = path.join(fakeBin, "docker");
+
+    mkdirSync(fakeBin);
+    writeFileSync(gatewaySecret, "different-local-token\n");
+    writeFileSync(openAISecret, "local-provider-token\n");
+    writeFileSync(
+      envFile,
+      [
+        "DEPLOYMENT_EXAMPLE_GATEWAY_PORT=19084",
+        `DEPLOYMENT_EXAMPLE_GATEWAY_API_KEYS_FILE=${gatewaySecret}`,
+        `DEPLOYMENT_EXAMPLE_OPENAI_API_KEY_FILE=${openAISecret}`,
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(
+      dockerShim,
+      [
+        "#!/usr/bin/env sh",
+        'if [ "$1" = "info" ]; then exit 0; fi',
+        'if [ "$1" = "compose" ] && [ "$2" = "version" ]; then exit 0; fi',
+        'if [ "$1" = "compose" ] && [ "$2" = "-f" ] && [ "$4" = "config" ]; then exit 0; fi',
+        'if [ "$1" = "compose" ] && [ "$2" = "-f" ] && [ "$4" = "ps" ] && [ "$5" = "--all" ] && [ "$6" = "--quiet" ]; then exit 0; fi',
+        "exit 1",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(fakeBin, 0o755);
+    chmodSync(dockerShim, 0o755);
+
+    try {
+      const result = spawnSync("sh", ["docs/deployment/container-example/preflight.sh"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          DEPLOYMENT_EXAMPLE_ENV_FILE: envFile,
+          PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+        },
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        "gateway API keys file does not include the deployment request token",
+      );
+      expect(result.stderr).toContain("AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN");
+      expect(result.stderr).not.toContain("different-local-token");
+      expect(result.stderr).toContain("deployment example preflight failed");
     } finally {
       rmSync(tmp, { force: true, recursive: true });
     }
