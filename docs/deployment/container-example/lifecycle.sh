@@ -184,9 +184,34 @@ request_diagnostics() {
   docs/deployment/container-example/diagnose.sh >&2 || true
 }
 
+logs_diagnostics() {
+  printf '\n%s\n' "deployment logs failed; running deployment status" >&2
+  docs/deployment/container-example/status.sh >&2 || true
+
+  printf '\n%s\n' "deployment logs failed; running deployment diagnostics" >&2
+  docs/deployment/container-example/diagnose.sh >&2 || true
+}
+
 logs() {
-  require_command docker
+  if ! command -v docker >/dev/null 2>&1; then
+    printf '%s\n' "deployment logs failed: docker is required" >&2
+    logs_diagnostics
+    exit 1
+  fi
+
+  set +e
   compose logs -f --tail="$LOG_TAIL" gateway
+  status="$?"
+  set -e
+
+  case "$status" in
+    0 | 130 | 143)
+      exit "$status"
+      ;;
+  esac
+
+  logs_diagnostics
+  exit "$status"
 }
 
 down() {
