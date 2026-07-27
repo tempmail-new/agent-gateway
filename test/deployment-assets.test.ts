@@ -184,6 +184,11 @@ describe("deployment example assets", () => {
     expect(lifecycleScript).toContain("wait_for_container_health");
     expect(lifecycleScript).toContain("deployment ready failed; running deployment diagnostics");
     expect(lifecycleScript).toContain("docs/deployment/container-example/diagnose.sh >&2 || true");
+    expect(lifecycleScript).toContain("deployment request failed: HTTP status");
+    expect(lifecycleScript).toContain("deployment request failed: curl exited with status");
+    expect(lifecycleScript).toContain("deployment request failed; running deployment status");
+    expect(lifecycleScript).toContain("docs/deployment/container-example/status.sh >&2 || true");
+    expect(lifecycleScript).toContain("deployment request failed; running deployment diagnostics");
     expect(lifecycleScript).toContain("/v1/requests");
     expect(lifecycleScript).toContain("compose logs -f");
     expect(lifecycleScript).toContain("compose down --remove-orphans");
@@ -595,6 +600,206 @@ describe("deployment example assets", () => {
       expect(result.stderr).toContain("unavailable");
       expect(result.stderr).toContain("--- recent gateway logs ---");
       expect(result.stderr).toContain("recent gateway logs");
+    } finally {
+      rmSync(tmp, { force: true, recursive: true });
+    }
+  });
+
+  it("prints status and diagnostics when manual deployment request returns an HTTP error", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-deployment-request-"));
+    const envFile = path.join(tmp, ".env.local");
+    const fakeBin = path.join(tmp, "bin");
+    const curlShim = path.join(fakeBin, "curl");
+    const dockerShim = path.join(fakeBin, "docker");
+
+    mkdirSync(fakeBin);
+    writeFileSync(envFile, "DEPLOYMENT_EXAMPLE_GATEWAY_PORT=19085\n");
+    writeFileSync(
+      curlShim,
+      [
+        "#!/usr/bin/env sh",
+        "output_file=",
+        "url=",
+        'while [ "$#" -gt 0 ]; do',
+        '  case "$1" in',
+        '    -o) output_file="$2"; shift 2 ;;',
+        "    -w|-H|-d) shift 2 ;;",
+        "    -sS|-fsS) shift ;;",
+        '    *) url="$1"; shift ;;',
+        "  esac",
+        "done",
+        'case "$url" in',
+        "  */v1/requests)",
+        '    printf "%s\\n" "{\\"error\\":\\"invalid_token\\",\\"reason\\":\\"auth_failed\\"}" >"$output_file"',
+        '    printf "%s" "401"',
+        "    exit 0",
+        "    ;;",
+        "  */readyz)",
+        '    printf "%s\\n" "{\\"status\\":\\"ready\\"}"',
+        "    exit 0",
+        "    ;;",
+        "esac",
+        "exit 7",
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(
+      dockerShim,
+      [
+        "#!/usr/bin/env sh",
+        'if [ "$1" = "compose" ]; then',
+        "  shift",
+        '  if [ "$1" = "-f" ]; then shift 2; fi',
+        '  if [ "$1" = "ps" ] && [ "$2" = "--all" ]; then',
+        '    printf "%s\\n" "fake compose services"',
+        "    exit 0",
+        "  fi",
+        '  if [ "$1" = "ps" ] && [ "$2" = "-q" ]; then',
+        '    printf "%s\\n" "fake-gateway-id"',
+        "    exit 0",
+        "  fi",
+        '  if [ "$1" = "logs" ]; then',
+        '    printf "%s\\n" "recent gateway logs"',
+        "    exit 0",
+        "  fi",
+        "fi",
+        'if [ "$1" = "inspect" ]; then',
+        '  printf "%s\\n" "container=/gateway status=running health=healthy"',
+        "  exit 0",
+        "fi",
+        "exit 0",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(fakeBin, 0o755);
+    chmodSync(curlShim, 0o755);
+    chmodSync(dockerShim, 0o755);
+
+    try {
+      const result = spawnSync(
+        "sh",
+        ["docs/deployment/container-example/lifecycle.sh", "request"],
+        {
+          cwd: repoRoot,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            DEPLOYMENT_EXAMPLE_ENV_FILE: envFile,
+            PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+          },
+        },
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        "deployment request failed: HTTP status 401 from http://localhost:19085/v1/requests",
+      );
+      expect(result.stderr).toContain("--- response body ---");
+      expect(result.stderr).toContain('{"error":"invalid_token","reason":"auth_failed"}');
+      expect(result.stderr).toContain("deployment request failed; running deployment status");
+      expect(result.stderr).toContain("deployment example status");
+      expect(result.stderr).toContain("gateway_url=http://localhost:19085");
+      expect(result.stderr).toContain("deployment request failed; running deployment diagnostics");
+      expect(result.stderr).toContain("--- resolved deployment configuration ---");
+      expect(result.stderr).toContain("--- recent gateway logs ---");
+      expect(result.stderr).toContain("recent gateway logs");
+    } finally {
+      rmSync(tmp, { force: true, recursive: true });
+    }
+  });
+
+  it("prints curl connection errors when manual deployment request cannot reach the gateway", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-deployment-request-"));
+    const envFile = path.join(tmp, ".env.local");
+    const fakeBin = path.join(tmp, "bin");
+    const curlShim = path.join(fakeBin, "curl");
+    const dockerShim = path.join(fakeBin, "docker");
+
+    mkdirSync(fakeBin);
+    writeFileSync(envFile, "DEPLOYMENT_EXAMPLE_GATEWAY_PORT=19086\n");
+    writeFileSync(
+      curlShim,
+      [
+        "#!/usr/bin/env sh",
+        "url=",
+        'while [ "$#" -gt 0 ]; do',
+        '  case "$1" in',
+        "    -o|-w|-H|-d) shift 2 ;;",
+        "    -sS|-fsS) shift ;;",
+        '    *) url="$1"; shift ;;',
+        "  esac",
+        "done",
+        'case "$url" in',
+        "  */v1/requests)",
+        '    printf "%s\\n" "curl: (7) Failed to connect to localhost port 19086" >&2',
+        "    exit 7",
+        "    ;;",
+        "  */readyz)",
+        '    printf "%s\\n" "curl: (7) Failed to connect to localhost port 19086" >&2',
+        "    exit 7",
+        "    ;;",
+        "esac",
+        "exit 7",
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(
+      dockerShim,
+      [
+        "#!/usr/bin/env sh",
+        'if [ "$1" = "compose" ]; then',
+        "  shift",
+        '  if [ "$1" = "-f" ]; then shift 2; fi',
+        '  if [ "$1" = "ps" ] && [ "$2" = "--all" ]; then',
+        '    printf "%s\\n" "fake compose services"',
+        "    exit 0",
+        "  fi",
+        '  if [ "$1" = "ps" ] && [ "$2" = "-q" ]; then',
+        '    printf "%s\\n" "fake-gateway-id"',
+        "    exit 0",
+        "  fi",
+        '  if [ "$1" = "logs" ]; then',
+        '    printf "%s\\n" "recent gateway logs"',
+        "    exit 0",
+        "  fi",
+        "fi",
+        'if [ "$1" = "inspect" ]; then',
+        '  printf "%s\\n" "container=/gateway status=running health=starting"',
+        "  exit 0",
+        "fi",
+        "exit 0",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(fakeBin, 0o755);
+    chmodSync(curlShim, 0o755);
+    chmodSync(dockerShim, 0o755);
+
+    try {
+      const result = spawnSync(
+        "sh",
+        ["docs/deployment/container-example/lifecycle.sh", "request"],
+        {
+          cwd: repoRoot,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            DEPLOYMENT_EXAMPLE_ENV_FILE: envFile,
+            PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+          },
+        },
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        "deployment request failed: curl exited with status 7 while calling http://localhost:19086/v1/requests",
+      );
+      expect(result.stderr).toContain("--- curl error ---");
+      expect(result.stderr).toContain("curl: (7) Failed to connect to localhost port 19086");
+      expect(result.stderr).toContain("deployment request failed; running deployment status");
+      expect(result.stderr).toContain("unavailable");
+      expect(result.stderr).toContain("deployment request failed; running deployment diagnostics");
+      expect(result.stderr).toContain("container=/gateway status=running health=starting");
     } finally {
       rmSync(tmp, { force: true, recursive: true });
     }
