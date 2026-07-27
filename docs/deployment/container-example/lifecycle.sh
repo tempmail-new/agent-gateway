@@ -33,6 +33,14 @@ finish_ready() {
   exit "$status"
 }
 
+up_diagnostics() {
+  printf '\n%s\n' "deployment up failed; running deployment status" >&2
+  docs/deployment/container-example/status.sh >&2 || true
+
+  printf '\n%s\n' "deployment up failed; running deployment diagnostics" >&2
+  docs/deployment/container-example/diagnose.sh >&2 || true
+}
+
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
     fail "$1 is required"
@@ -85,7 +93,10 @@ up() {
   log "run deployment preflight"
   docs/deployment/container-example/preflight.sh
   log "start gateway"
-  compose up --build -d gateway
+  if ! compose up --build -d gateway; then
+    up_diagnostics
+    exit 1
+  fi
 }
 
 ready() {
