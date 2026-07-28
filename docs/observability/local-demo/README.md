@@ -39,6 +39,8 @@ To wait for the gateway and Prometheus after a detached start:
 make observability-ready
 ```
 
+If the gateway or Prometheus does not become ready, this command prints compose service state and runs the same inspection checks as `make observability-inspect` before returning a failure.
+
 ## Generate Traffic
 
 ```bash

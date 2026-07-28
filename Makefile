@@ -72,17 +72,7 @@ observability-up:
 	$(OBSERVABILITY_COMPOSE) up --build -d
 
 observability-ready:
-	@i=1; while [ "$$i" -le 30 ]; do \
-		if curl -fsS http://localhost:8080/readyz >/dev/null && curl -fsS http://localhost:9090/-/ready >/dev/null; then \
-			echo "observability demo is ready"; \
-			exit 0; \
-		fi; \
-		sleep 2; \
-		i=$$((i + 1)); \
-	done; \
-	echo "observability demo did not become ready" >&2; \
-	$(OBSERVABILITY_COMPOSE) ps; \
-	exit 1
+	@docs/observability/local-demo/ready.sh
 
 observability-traffic:
 	docs/observability/local-demo/generate-traffic.sh
