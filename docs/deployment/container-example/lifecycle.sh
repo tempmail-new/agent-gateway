@@ -192,6 +192,19 @@ logs_diagnostics() {
   docs/deployment/container-example/diagnose.sh >&2 || true
 }
 
+down_diagnostics() {
+  printf '\n%s\n' "deployment down failed; running deployment status" >&2
+  docs/deployment/container-example/status.sh >&2 || true
+
+  printf '\n%s\n' "deployment down failed; cleanup context" >&2
+  printf '%s\n' "compose_project=$DEPLOYMENT_EXAMPLE_COMPOSE_PROJECT" >&2
+  printf '%s\n' "compose_file=$DEPLOYMENT_EXAMPLE_COMPOSE_FILE" >&2
+  printf '%s\n' "retry_command=COMPOSE_PROJECT_NAME=$DEPLOYMENT_EXAMPLE_COMPOSE_PROJECT docker compose -f $DEPLOYMENT_EXAMPLE_COMPOSE_FILE down --remove-orphans" >&2
+
+  printf '\n%s\n' "deployment down failed; running deployment diagnostics" >&2
+  docs/deployment/container-example/diagnose.sh >&2 || true
+}
+
 logs() {
   if ! command -v docker >/dev/null 2>&1; then
     printf '%s\n' "deployment logs failed: docker is required" >&2
@@ -215,8 +228,21 @@ logs() {
 }
 
 down() {
-  require_command docker
+  if ! command -v docker >/dev/null 2>&1; then
+    printf '%s\n' "deployment down failed: docker is required" >&2
+    down_diagnostics
+    exit 1
+  fi
+
+  set +e
   compose down --remove-orphans
+  status="$?"
+  set -e
+
+  if [ "$status" -ne 0 ]; then
+    down_diagnostics
+    exit "$status"
+  fi
 }
 
 case "${1:-}" in

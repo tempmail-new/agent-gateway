@@ -195,6 +195,10 @@ describe("deployment example assets", () => {
     expect(lifecycleScript).toContain("logs_diagnostics");
     expect(lifecycleScript).toContain("deployment logs failed; running deployment status");
     expect(lifecycleScript).toContain("deployment logs failed; running deployment diagnostics");
+    expect(lifecycleScript).toContain("down_diagnostics");
+    expect(lifecycleScript).toContain("deployment down failed; running deployment status");
+    expect(lifecycleScript).toContain("deployment down failed; cleanup context");
+    expect(lifecycleScript).toContain("deployment down failed; running deployment diagnostics");
     expect(lifecycleScript).toContain("/v1/requests");
     expect(lifecycleScript).toContain("compose logs -f");
     expect(lifecycleScript).toContain("compose down --remove-orphans");
@@ -977,6 +981,95 @@ describe("deployment example assets", () => {
       expect(result.stderr).toContain("--- gateway container health ---");
       expect(result.stderr).toContain("container=/gateway status=exited health=missing");
       expect(result.stderr).toContain("--- gateway readiness: http://localhost:19088/readyz ---");
+      expect(result.stderr).toContain("unavailable");
+      expect(result.stderr).toContain("--- recent gateway logs ---");
+      expect(result.stderr).toContain("recent gateway logs");
+    } finally {
+      rmSync(tmp, { force: true, recursive: true });
+    }
+  });
+
+  it("prints remaining state and cleanup context when manual deployment teardown fails", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-deployment-down-"));
+    const envFile = path.join(tmp, ".env.local");
+    const fakeBin = path.join(tmp, "bin");
+    const curlShim = path.join(fakeBin, "curl");
+    const dockerShim = path.join(fakeBin, "docker");
+
+    mkdirSync(fakeBin);
+    writeFileSync(
+      envFile,
+      [
+        "DEPLOYMENT_EXAMPLE_GATEWAY_PORT=19089",
+        "DEPLOYMENT_EXAMPLE_COMPOSE_PROJECT=down-test",
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(curlShim, "#!/usr/bin/env sh\nexit 7\n");
+    writeFileSync(
+      dockerShim,
+      [
+        "#!/usr/bin/env sh",
+        'if [ "$1" = "compose" ]; then',
+        "  shift",
+        '  if [ "$1" = "-f" ]; then shift 2; fi',
+        '  if [ "$1" = "ps" ] && [ "$2" = "--all" ]; then',
+        '    printf "%s\\n" "NAME SERVICE STATUS"',
+        '    printf "%s\\n" "gateway gateway removal-failed"',
+        "    exit 0",
+        "  fi",
+        '  if [ "$1" = "ps" ] && [ "$2" = "-q" ]; then',
+        '    printf "%s\\n" "fake-gateway-id"',
+        "    exit 0",
+        "  fi",
+        '  if [ "$1" = "logs" ]; then',
+        '    printf "%s\\n" "recent gateway logs"',
+        "    exit 0",
+        "  fi",
+        '  if [ "$1" = "down" ]; then',
+        '    printf "%s\\n" "network removal failed" >&2',
+        "    exit 1",
+        "  fi",
+        "fi",
+        'if [ "$1" = "inspect" ]; then',
+        '  printf "%s\\n" "container=/gateway status=exited health=missing"',
+        "  exit 0",
+        "fi",
+        "exit 1",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(fakeBin, 0o755);
+    chmodSync(curlShim, 0o755);
+    chmodSync(dockerShim, 0o755);
+
+    try {
+      const result = spawnSync("sh", ["docs/deployment/container-example/lifecycle.sh", "down"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          DEPLOYMENT_EXAMPLE_ENV_FILE: envFile,
+          PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+        },
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("network removal failed");
+      expect(result.stderr).toContain("deployment down failed; running deployment status");
+      expect(result.stderr).toContain("deployment example status");
+      expect(result.stderr).toContain("compose_project=down-test");
+      expect(result.stderr).toContain("gateway_url=http://localhost:19089");
+      expect(result.stderr).toContain("gateway gateway removal-failed");
+      expect(result.stderr).toContain("deployment down failed; cleanup context");
+      expect(result.stderr).toContain(
+        "retry_command=COMPOSE_PROJECT_NAME=down-test docker compose -f compose.deployment-example.yaml down --remove-orphans",
+      );
+      expect(result.stderr).toContain("deployment down failed; running deployment diagnostics");
+      expect(result.stderr).toContain("--- resolved deployment configuration ---");
+      expect(result.stderr).toContain("--- gateway container health ---");
+      expect(result.stderr).toContain("container=/gateway status=exited health=missing");
+      expect(result.stderr).toContain("--- gateway readiness: http://localhost:19089/readyz ---");
       expect(result.stderr).toContain("unavailable");
       expect(result.stderr).toContain("--- recent gateway logs ---");
       expect(result.stderr).toContain("recent gateway logs");
