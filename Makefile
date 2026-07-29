@@ -69,7 +69,7 @@ observability-preflight:
 	docs/observability/local-demo/preflight.sh
 
 observability-up:
-	$(OBSERVABILITY_COMPOSE) up --build -d
+	@docs/observability/local-demo/up.sh
 
 observability-ready:
 	@docs/observability/local-demo/ready.sh
