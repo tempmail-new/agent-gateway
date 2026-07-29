@@ -148,6 +148,13 @@ describe("observability operations assets", () => {
     expect(grafanaDashboard).toContain("path: /var/lib/grafana/dashboards");
     expect(trafficScript).toContain("AGENT_GATEWAY_DEMO_TOKEN");
     expect(trafficScript).toContain("blocked-model");
+    expect(trafficScript).toContain("expected_status");
+    expect(trafficScript).toContain("observability traffic failed; compose state");
+    expect(trafficScript).toContain("compose ps >&2 || true");
+    expect(trafficScript).toContain(
+      "observability traffic failed; running observability inspection",
+    );
+    expect(trafficScript).toContain("docs/observability/local-demo/inspect.sh >&2 || true");
     expect(trafficScript).toContain("grep agent_gateway");
     expect(inspectScript).toContain("GATEWAY_URL");
     expect(inspectScript).toContain("COLLECTOR_METRICS_URL");
@@ -605,6 +612,95 @@ describe("observability operations assets", () => {
       );
       expect(result.stderr).toContain(
         "observability teardown failed; running observability inspection",
+      );
+      expect(result.stderr).toContain("ok: gateway readiness");
+      expect(result.stderr).toContain("ok: collector gateway metrics");
+      expect(result.stderr).toContain("unexpected prometheus rule loading response");
+    } finally {
+      rmSync(tmp, { force: true, recursive: true });
+    }
+  });
+
+  it("prints compose state and inspection context when manual demo traffic is unexpected", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-observability-traffic-"));
+    const fakeBin = path.join(tmp, "bin");
+    const curlShim = path.join(fakeBin, "curl");
+    const dockerShim = path.join(fakeBin, "docker");
+
+    mkdirSync(fakeBin);
+    writeFileSync(
+      curlShim,
+      [
+        "#!/usr/bin/env sh",
+        "url=",
+        'for arg in "$@"; do',
+        '  case "$arg" in',
+        '    http://*) url="$arg" ;;',
+        "  esac",
+        "done",
+        'case "$url" in',
+        "  http://localhost:8080/v1/requests)",
+        '    printf "%s" "500"',
+        "    exit 0",
+        "    ;;",
+        "  http://localhost:8080/readyz)",
+        '    printf "%s\\n" "{\\"status\\":\\"ready\\",\\"defaultProvider\\":\\"echo\\"}"',
+        "    exit 0",
+        "    ;;",
+        "  http://localhost:9464/metrics)",
+        '    printf "%s\\n" "agent_gateway_http_server_requests_total 1"',
+        "    exit 0",
+        "    ;;",
+        "  http://localhost:9090/api/v1/rules)",
+        '    printf "%s\\n" "{\\"status\\":\\"success\\",\\"data\\":{\\"groups\\":[]}}"',
+        "    exit 0",
+        "    ;;",
+        "esac",
+        "exit 7",
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(
+      dockerShim,
+      [
+        "#!/usr/bin/env sh",
+        'if [ "$1" = "compose" ]; then',
+        "  shift",
+        '  if [ "$1" = "-f" ]; then shift 2; fi',
+        '  if [ "$1" = "ps" ]; then',
+        '    printf "%s\\n" "NAME SERVICE STATUS"',
+        '    printf "%s\\n" "gateway gateway running"',
+        "    exit 0",
+        "  fi",
+        "fi",
+        "exit 1",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(fakeBin, 0o755);
+    chmodSync(curlShim, 0o755);
+    chmodSync(dockerShim, 0o755);
+
+    try {
+      const result = spawnSync("sh", ["docs/observability/local-demo/generate-traffic.sh"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+        },
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain("500 echo success 1");
+      expect(result.stderr).toContain(
+        "observability traffic got unexpected status for echo success 1 (expected 200, got 500)",
+      );
+      expect(result.stderr).toContain("observability traffic failed; compose state");
+      expect(result.stderr).toContain("--- compose services ---");
+      expect(result.stderr).toContain("gateway gateway running");
+      expect(result.stderr).toContain(
+        "observability traffic failed; running observability inspection",
       );
       expect(result.stderr).toContain("ok: gateway readiness");
       expect(result.stderr).toContain("ok: collector gateway metrics");
