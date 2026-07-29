@@ -33,6 +33,8 @@ Open these local endpoints:
 
 Grafana anonymous local access is enabled for the demo stack. The Prometheus datasource and Agent Gateway dashboard are provisioned automatically.
 
+If Docker Compose cannot build or start the demo stack, this command prints compose service state and runs the same inspection checks as `make observability-inspect` before returning the Compose failure.
+
 To wait for the gateway and Prometheus after a detached start:
 
 ```bash
