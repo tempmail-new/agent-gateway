@@ -84,7 +84,7 @@ observability-logs:
 	@docs/observability/local-demo/logs.sh
 
 observability-down:
-	$(OBSERVABILITY_COMPOSE) down
+	@docs/observability/local-demo/down.sh
 
 observability-smoke:
 	docs/observability/local-demo/smoke.sh

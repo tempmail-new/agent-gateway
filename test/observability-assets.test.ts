@@ -97,6 +97,7 @@ describe("observability operations assets", () => {
     const trafficScript = readRepoFile("docs/observability/local-demo/generate-traffic.sh");
     const inspectScript = readRepoFile("docs/observability/local-demo/inspect.sh");
     const logsScript = readRepoFile("docs/observability/local-demo/logs.sh");
+    const downScript = readRepoFile("docs/observability/local-demo/down.sh");
     const preflightScript = readRepoFile("docs/observability/local-demo/preflight.sh");
     const readyScript = readRepoFile("docs/observability/local-demo/ready.sh");
     const smokeScript = readRepoFile("docs/observability/local-demo/smoke.sh");
@@ -140,7 +141,7 @@ describe("observability operations assets", () => {
     expect(makefile).toContain("observability-smoke:");
     expect(makefile).toContain("docs/observability/local-demo/smoke.sh");
     expect(makefile).toContain("observability-down:");
-    expect(makefile).toContain("$(OBSERVABILITY_COMPOSE) down");
+    expect(makefile).toContain("docs/observability/local-demo/down.sh");
     expect(prometheus).toContain("otel-collector:9464");
     expect(prometheus).toContain("/etc/prometheus/rules/agent-gateway.yaml");
     expect(grafanaDatasource).toContain("url: http://prometheus:9090");
@@ -165,6 +166,15 @@ describe("observability operations assets", () => {
     expect(logsScript).toContain("compose ps >&2 || true");
     expect(logsScript).toContain("observability logs failed; running observability inspection");
     expect(logsScript).toContain("docs/observability/local-demo/inspect.sh >&2 || true");
+    expect(downScript).toContain("compose down");
+    expect(downScript).toContain("observability teardown failed; compose state");
+    expect(downScript).toContain("compose ps >&2 || true");
+    expect(downScript).toContain("observability teardown failed; cleanup context");
+    expect(downScript).toContain(
+      "retry_command=COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME docker compose -f $COMPOSE_FILE down",
+    );
+    expect(downScript).toContain("observability teardown failed; running observability inspection");
+    expect(downScript).toContain("docs/observability/local-demo/inspect.sh >&2 || true");
     expect(preflightScript).toContain("docker info");
     expect(preflightScript).toContain("docker compose version");
     expect(preflightScript).toContain('docker compose -f "$COMPOSE_FILE" config');
@@ -502,6 +512,99 @@ describe("observability operations assets", () => {
       expect(result.stderr).toContain("gateway gateway running");
       expect(result.stderr).toContain(
         "observability logs failed; running observability inspection",
+      );
+      expect(result.stderr).toContain("ok: gateway readiness");
+      expect(result.stderr).toContain("ok: collector gateway metrics");
+      expect(result.stderr).toContain("unexpected prometheus rule loading response");
+    } finally {
+      rmSync(tmp, { force: true, recursive: true });
+    }
+  });
+
+  it("prints compose state, cleanup context, and inspection context when manual demo teardown fails", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-observability-down-"));
+    const fakeBin = path.join(tmp, "bin");
+    const curlShim = path.join(fakeBin, "curl");
+    const dockerShim = path.join(fakeBin, "docker");
+
+    mkdirSync(fakeBin);
+    writeFileSync(
+      curlShim,
+      [
+        "#!/usr/bin/env sh",
+        "url=",
+        'while [ "$#" -gt 0 ]; do',
+        '  case "$1" in',
+        "    -f|-s|-S|-fsS) shift ;;",
+        '    *) url="$1"; shift ;;',
+        "  esac",
+        "done",
+        'case "$url" in',
+        "  http://localhost:8080/readyz)",
+        '    printf "%s\\n" "{\\"status\\":\\"ready\\",\\"defaultProvider\\":\\"echo\\"}"',
+        "    exit 0",
+        "    ;;",
+        "  http://localhost:9464/metrics)",
+        '    printf "%s\\n" "agent_gateway_http_server_requests_total 1"',
+        "    exit 0",
+        "    ;;",
+        "  http://localhost:9090/api/v1/rules)",
+        '    printf "%s\\n" "{\\"status\\":\\"success\\",\\"data\\":{\\"groups\\":[]}}"',
+        "    exit 0",
+        "    ;;",
+        "esac",
+        "exit 7",
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(
+      dockerShim,
+      [
+        "#!/usr/bin/env sh",
+        'if [ "$1" = "compose" ]; then',
+        "  shift",
+        '  if [ "$1" = "-f" ]; then shift 2; fi',
+        '  if [ "$1" = "down" ]; then',
+        '    printf "%s\\n" "compose teardown unavailable" >&2',
+        "    exit 19",
+        "  fi",
+        '  if [ "$1" = "ps" ]; then',
+        '    printf "%s\\n" "NAME SERVICE STATUS"',
+        '    printf "%s\\n" "prometheus prometheus running"',
+        "    exit 0",
+        "  fi",
+        "fi",
+        "exit 1",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(fakeBin, 0o755);
+    chmodSync(curlShim, 0o755);
+    chmodSync(dockerShim, 0o755);
+
+    try {
+      const result = spawnSync("sh", ["docs/observability/local-demo/down.sh"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+        },
+      });
+
+      expect(result.status).toBe(19);
+      expect(result.stderr).toContain("compose teardown unavailable");
+      expect(result.stderr).toContain("observability teardown failed; compose state");
+      expect(result.stderr).toContain("--- compose services ---");
+      expect(result.stderr).toContain("prometheus prometheus running");
+      expect(result.stderr).toContain("observability teardown failed; cleanup context");
+      expect(result.stderr).toContain("compose_project=agent-gateway-observability-demo");
+      expect(result.stderr).toContain("compose_file=compose.observability.yaml");
+      expect(result.stderr).toContain(
+        "retry_command=COMPOSE_PROJECT_NAME=agent-gateway-observability-demo docker compose -f compose.observability.yaml down",
+      );
+      expect(result.stderr).toContain(
+        "observability teardown failed; running observability inspection",
       );
       expect(result.stderr).toContain("ok: gateway readiness");
       expect(result.stderr).toContain("ok: collector gateway metrics");
