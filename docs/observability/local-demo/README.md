@@ -66,3 +66,5 @@ Use `make observability-logs` to tail container logs while investigating startup
 ```bash
 make observability-down
 ```
+
+If Docker Compose cannot tear the demo stack down cleanly, this command prints remaining compose service state, cleanup context with the compose project, compose file, and retry command, then runs the same inspection checks as `make observability-inspect` before returning the Compose failure.
