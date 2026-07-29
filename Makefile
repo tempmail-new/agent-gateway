@@ -81,7 +81,7 @@ observability-inspect:
 	docs/observability/local-demo/inspect.sh
 
 observability-logs:
-	$(OBSERVABILITY_COMPOSE) logs -f --tail=100
+	@docs/observability/local-demo/logs.sh
 
 observability-down:
 	$(OBSERVABILITY_COMPOSE) down
