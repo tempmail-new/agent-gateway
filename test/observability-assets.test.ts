@@ -96,6 +96,7 @@ describe("observability operations assets", () => {
     );
     const trafficScript = readRepoFile("docs/observability/local-demo/generate-traffic.sh");
     const inspectScript = readRepoFile("docs/observability/local-demo/inspect.sh");
+    const statusScript = readRepoFile("docs/observability/local-demo/status.sh");
     const logsScript = readRepoFile("docs/observability/local-demo/logs.sh");
     const downScript = readRepoFile("docs/observability/local-demo/down.sh");
     const preflightScript = readRepoFile("docs/observability/local-demo/preflight.sh");
@@ -119,6 +120,7 @@ describe("observability operations assets", () => {
     expect(phonyLine).toContain("observability-ready");
     expect(phonyLine).toContain("observability-traffic");
     expect(phonyLine).toContain("observability-inspect");
+    expect(phonyLine).toContain("observability-status");
     expect(phonyLine).toContain("observability-logs");
     expect(phonyLine).toContain("observability-down");
     expect(phonyLine).toContain("observability-smoke");
@@ -136,6 +138,8 @@ describe("observability operations assets", () => {
     expect(makefile).toContain("docs/observability/local-demo/generate-traffic.sh");
     expect(makefile).toContain("observability-inspect:");
     expect(makefile).toContain("docs/observability/local-demo/inspect.sh");
+    expect(makefile).toContain("observability-status:");
+    expect(makefile).toContain("docs/observability/local-demo/status.sh");
     expect(makefile).toContain("observability-logs:");
     expect(makefile).toContain("docs/observability/local-demo/logs.sh");
     expect(makefile).toContain("observability-smoke:");
@@ -166,6 +170,15 @@ describe("observability operations assets", () => {
     expect(inspectScript).toContain("AgentGatewayProviderP95LatencyHigh");
     expect(inspectScript).toContain("agent-gateway-otel-collector");
     expect(inspectScript).toContain("agent-gateway-ops");
+    expect(statusScript).toContain("observability demo status");
+    expect(statusScript).toContain("compose ps --all || true");
+    expect(statusScript).toContain("gateway readiness");
+    expect(statusScript).toContain("collector metrics");
+    expect(statusScript).toContain("agent_gateway metrics present");
+    expect(statusScript).toContain("prometheus readiness");
+    expect(statusScript).toContain("grafana health");
+    expect(statusScript).toContain("grafana dashboard");
+    expect(statusScript).toContain("agent-gateway-ops");
     expect(logsScript).toContain("OBSERVABILITY_LOG_TAIL");
     expect(logsScript).toContain('compose logs -f --tail="$LOG_TAIL"');
     expect(logsScript).toContain("gateway otel-collector prometheus grafana");
@@ -227,6 +240,7 @@ describe("observability operations assets", () => {
       "make observability-ready",
       "make observability-traffic",
       "make observability-inspect",
+      "make observability-status",
       "make observability-smoke",
       "make observability-down",
     ]) {
@@ -334,6 +348,104 @@ describe("observability operations assets", () => {
       expect(result.stderr).toContain("unexpected grafana health response");
       expect(result.stderr).toContain("unexpected grafana dashboard provisioning response");
       expect(result.stderr).toContain("observability inspection found failures");
+    } finally {
+      rmSync(tmp, { force: true, recursive: true });
+    }
+  });
+
+  it("prints a compact local demo status snapshot without failing on unavailable surfaces", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-observability-status-"));
+    const fakeBin = path.join(tmp, "bin");
+    const curlShim = path.join(fakeBin, "curl");
+    const dockerShim = path.join(fakeBin, "docker");
+
+    mkdirSync(fakeBin);
+    writeFileSync(
+      curlShim,
+      [
+        "#!/usr/bin/env sh",
+        "url=",
+        'while [ "$#" -gt 0 ]; do',
+        '  case "$1" in',
+        "    -f|-s|-S|-fsS) shift ;;",
+        '    *) url="$1"; shift ;;',
+        "  esac",
+        "done",
+        'case "$url" in',
+        "  http://localhost:8080/readyz)",
+        '    printf "%s\\n" "{\\"status\\":\\"ready\\",\\"defaultProvider\\":\\"echo\\"}"',
+        "    exit 0",
+        "    ;;",
+        "  http://localhost:9464/metrics)",
+        '    printf "%s\\n" "agent_gateway_http_server_requests_total 1"',
+        "    exit 0",
+        "    ;;",
+        "  http://localhost:9090/-/ready)",
+        '    printf "%s\\n" "Prometheus Server is Ready."',
+        "    exit 0",
+        "    ;;",
+        "  http://localhost:3000/api/health)",
+        '    printf "%s\\n" "{\\"database\\":\\"ok\\"}"',
+        "    exit 0",
+        "    ;;",
+        "  http://localhost:3000/api/dashboards/uid/agent-gateway-ops)",
+        "    exit 22",
+        "    ;;",
+        "esac",
+        "exit 7",
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(
+      dockerShim,
+      [
+        "#!/usr/bin/env sh",
+        'if [ "$1" = "compose" ]; then',
+        "  shift",
+        '  if [ "$1" = "-f" ]; then shift 2; fi',
+        '  if [ "$1" = "ps" ]; then',
+        '    printf "%s\\n" "NAME SERVICE STATUS"',
+        '    printf "%s\\n" "grafana grafana running"',
+        "    exit 0",
+        "  fi",
+        "fi",
+        "exit 1",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(fakeBin, 0o755);
+    chmodSync(curlShim, 0o755);
+    chmodSync(dockerShim, 0o755);
+
+    try {
+      const result = spawnSync("sh", ["docs/observability/local-demo/status.sh"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+        },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("observability demo status");
+      expect(result.stdout).toContain("compose_project=agent-gateway-observability-demo");
+      expect(result.stdout).toContain("--- compose services ---");
+      expect(result.stdout).toContain("grafana grafana running");
+      expect(result.stdout).toContain("--- gateway readiness: http://localhost:8080/readyz ---");
+      expect(result.stdout).toContain('"status":"ready"');
+      expect(result.stdout).toContain("--- collector metrics: http://localhost:9464/metrics ---");
+      expect(result.stdout).toContain("agent_gateway metrics present");
+      expect(result.stdout).toContain(
+        "--- prometheus readiness: http://localhost:9090/-/ready ---",
+      );
+      expect(result.stdout).toContain("Prometheus Server is Ready.");
+      expect(result.stdout).toContain("--- grafana health: http://localhost:3000/api/health ---");
+      expect(result.stdout).toContain('"database":"ok"');
+      expect(result.stdout).toContain(
+        "--- grafana dashboard: http://localhost:3000/api/dashboards/uid/agent-gateway-ops ---",
+      );
+      expect(result.stdout).toContain("unavailable");
     } finally {
       rmSync(tmp, { force: true, recursive: true });
     }
