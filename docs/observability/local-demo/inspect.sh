@@ -48,7 +48,18 @@ require_json() {
   return 1
 }
 
-require_json "gateway readiness" "$GATEWAY_URL/readyz" '
+status=0
+
+run_check() {
+  if "$@"; then
+    return 0
+  fi
+
+  status=1
+  return 0
+}
+
+run_check require_json "gateway readiness" "$GATEWAY_URL/readyz" '
 let input = "";
 process.stdin.on("data", (chunk) => (input += chunk));
 process.stdin.on("end", () => {
@@ -60,9 +71,9 @@ process.stdin.on("end", () => {
 });
 '
 
-require_text "collector gateway metrics" "agent_gateway" "$COLLECTOR_METRICS_URL"
+run_check require_text "collector gateway metrics" "agent_gateway" "$COLLECTOR_METRICS_URL"
 
-require_json "prometheus rule loading" "$PROMETHEUS_URL/api/v1/rules" '
+run_check require_json "prometheus rule loading" "$PROMETHEUS_URL/api/v1/rules" '
 let input = "";
 process.stdin.on("data", (chunk) => (input += chunk));
 process.stdin.on("end", () => {
@@ -82,7 +93,7 @@ process.stdin.on("end", () => {
 });
 '
 
-require_json "prometheus collector target" "$PROMETHEUS_URL/api/v1/targets" '
+run_check require_json "prometheus collector target" "$PROMETHEUS_URL/api/v1/targets" '
 let input = "";
 process.stdin.on("data", (chunk) => (input += chunk));
 process.stdin.on("end", () => {
@@ -101,7 +112,7 @@ process.stdin.on("end", () => {
 });
 '
 
-require_json "grafana health" "$GRAFANA_URL/api/health" '
+run_check require_json "grafana health" "$GRAFANA_URL/api/health" '
 let input = "";
 process.stdin.on("data", (chunk) => (input += chunk));
 process.stdin.on("end", () => {
@@ -113,7 +124,7 @@ process.stdin.on("end", () => {
 });
 '
 
-require_json "grafana dashboard provisioning" "$GRAFANA_URL/api/dashboards/uid/agent-gateway-ops" '
+run_check require_json "grafana dashboard provisioning" "$GRAFANA_URL/api/dashboards/uid/agent-gateway-ops" '
 let input = "";
 process.stdin.on("data", (chunk) => (input += chunk));
 process.stdin.on("end", () => {
@@ -124,3 +135,11 @@ process.stdin.on("end", () => {
   process.exit(1);
 });
 '
+
+if [ "$status" -eq 0 ]; then
+  printf "observability inspection completed successfully\n"
+else
+  printf "observability inspection found failures\n" >&2
+fi
+
+exit "$status"

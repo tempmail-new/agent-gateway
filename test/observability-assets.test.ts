@@ -266,6 +266,79 @@ describe("observability operations assets", () => {
     expect(smokeScript).toContain("docs/observability/local-demo/inspect.sh");
   });
 
+  it("runs every inspection check before reporting local demo inspection failures", () => {
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-observability-inspect-"));
+    const fakeBin = path.join(tmp, "bin");
+    const curlShim = path.join(fakeBin, "curl");
+
+    mkdirSync(fakeBin);
+    writeFileSync(
+      curlShim,
+      [
+        "#!/usr/bin/env sh",
+        "url=",
+        'while [ "$#" -gt 0 ]; do',
+        '  case "$1" in',
+        "    -f|-s|-S|-fsS) shift ;;",
+        '    *) url="$1"; shift ;;',
+        "  esac",
+        "done",
+        'case "$url" in',
+        "  http://localhost:8080/readyz)",
+        '    printf "%s\\n" "{\\"status\\":\\"ready\\",\\"defaultProvider\\":\\"echo\\"}"',
+        "    exit 0",
+        "    ;;",
+        "  http://localhost:9464/metrics)",
+        '    printf "%s\\n" "agent_gateway_http_server_requests_total 1"',
+        "    exit 0",
+        "    ;;",
+        "  http://localhost:9090/api/v1/rules)",
+        '    printf "%s\\n" "{\\"status\\":\\"success\\",\\"data\\":{\\"groups\\":[]}}"',
+        "    exit 0",
+        "    ;;",
+        "  http://localhost:9090/api/v1/targets)",
+        '    printf "%s\\n" "{\\"status\\":\\"success\\",\\"data\\":{\\"activeTargets\\":[]}}"',
+        "    exit 0",
+        "    ;;",
+        "  http://localhost:3000/api/health)",
+        '    printf "%s\\n" "{\\"database\\":\\"starting\\"}"',
+        "    exit 0",
+        "    ;;",
+        "  http://localhost:3000/api/dashboards/uid/agent-gateway-ops)",
+        '    printf "%s\\n" "{\\"dashboard\\":{\\"uid\\":\\"other\\",\\"title\\":\\"Other\\"}}"',
+        "    exit 0",
+        "    ;;",
+        "esac",
+        "exit 7",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(fakeBin, 0o755);
+    chmodSync(curlShim, 0o755);
+
+    try {
+      const result = spawnSync("sh", ["docs/observability/local-demo/inspect.sh"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${fakeBin}${path.delimiter}${process.env.PATH ?? ""}`,
+        },
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain("ok: gateway readiness");
+      expect(result.stdout).toContain("ok: collector gateway metrics");
+      expect(result.stderr).toContain("unexpected prometheus rule loading response");
+      expect(result.stderr).toContain("unexpected prometheus collector target response");
+      expect(result.stderr).toContain("unexpected grafana health response");
+      expect(result.stderr).toContain("unexpected grafana dashboard provisioning response");
+      expect(result.stderr).toContain("observability inspection found failures");
+    } finally {
+      rmSync(tmp, { force: true, recursive: true });
+    }
+  });
+
   it("prints compose state and inspection context when manual demo readiness fails", () => {
     const tmp = mkdtempSync(path.join(os.tmpdir(), "agent-gateway-observability-ready-"));
     const fakeBin = path.join(tmp, "bin");
