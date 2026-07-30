@@ -51,6 +51,8 @@ make observability-traffic
 
 The script sends successful echo-provider requests plus authentication, policy, budget, and validation rejections so the HTTP dashboard panels have a useful local shape. Provider panels populate from the successful echo calls.
 
+If traffic generation cannot reach the gateway or receives an unexpected status for one of the representative requests, this command prints compose service state and runs the same inspection checks as `make observability-inspect` before returning a failure.
+
 ## Inspect
 
 ```bash
