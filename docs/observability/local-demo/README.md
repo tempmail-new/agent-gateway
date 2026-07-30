@@ -61,6 +61,14 @@ make observability-inspect
 
 The inspection script checks gateway readiness, collector metric output, Prometheus rule loading, Prometheus target health for the collector scrape, Grafana health, and Grafana dashboard provisioning. It runs every check before returning a failure so one command shows the full local wiring state instead of stopping at the first unavailable dependency. Prometheus loads the starter rules from `docs/observability/alerts/prometheus-rules.yaml`. They are traffic-gated and may stay inactive during a short smoke run; the purpose of the demo is to prove the scrape path, rule loading, and dashboard wiring.
 
+For a compact steady-state snapshot between startup, traffic generation, and deeper inspection:
+
+```bash
+make observability-status
+```
+
+The status helper prints the compose project, compose file, local endpoint URLs, compose service state, gateway readiness, collector metric presence, Prometheus readiness, Grafana health, and Grafana dashboard availability without streaming logs or failing the command when a surface is unavailable.
+
 Use `make observability-logs` to tail container logs while investigating startup or scrape issues. If Docker Compose cannot stream logs, the command prints compose service state and runs the same inspection checks as `make observability-inspect` before returning the original failure.
 
 ## Stop
