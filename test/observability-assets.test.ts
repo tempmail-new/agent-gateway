@@ -94,6 +94,7 @@ describe("observability operations assets", () => {
     const grafanaDashboard = readRepoFile(
       "docs/observability/local-demo/grafana/provisioning/dashboards/agent-gateway.yml",
     );
+    const helpScript = readRepoFile("docs/observability/local-demo/help.sh");
     const trafficScript = readRepoFile("docs/observability/local-demo/generate-traffic.sh");
     const inspectScript = readRepoFile("docs/observability/local-demo/inspect.sh");
     const statusScript = readRepoFile("docs/observability/local-demo/status.sh");
@@ -116,6 +117,7 @@ describe("observability operations assets", () => {
     );
     const phonyLine = makefile.split("\n").find((line) => line.startsWith(".PHONY:"));
     expect(phonyLine).toContain("observability-preflight");
+    expect(phonyLine).toContain("observability-help");
     expect(phonyLine).toContain("observability-up");
     expect(phonyLine).toContain("observability-ready");
     expect(phonyLine).toContain("observability-traffic");
@@ -130,6 +132,8 @@ describe("observability operations assets", () => {
     );
     expect(makefile).toContain("observability-preflight:");
     expect(makefile).toContain("docs/observability/local-demo/preflight.sh");
+    expect(makefile).toContain("observability-help:");
+    expect(makefile).toContain("docs/observability/local-demo/help.sh");
     expect(makefile).toContain("observability-up:");
     expect(makefile).toContain("docs/observability/local-demo/up.sh");
     expect(makefile).toContain("observability-ready:");
@@ -150,6 +154,11 @@ describe("observability operations assets", () => {
     expect(prometheus).toContain("/etc/prometheus/rules/agent-gateway.yaml");
     expect(grafanaDatasource).toContain("url: http://prometheus:9090");
     expect(grafanaDashboard).toContain("path: /var/lib/grafana/dashboards");
+    expect(helpScript).toContain("local observability demo command help");
+    expect(helpScript).toContain("make observability-status");
+    expect(helpScript).toContain("override knobs");
+    expect(helpScript).toContain("OBSERVABILITY_COMPOSE_PROJECT");
+    expect(helpScript).toContain("AGENT_GATEWAY_DEMO_TOKEN");
     expect(trafficScript).toContain("AGENT_GATEWAY_DEMO_TOKEN");
     expect(trafficScript).toContain("blocked-model");
     expect(trafficScript).toContain("expected_status");
@@ -236,6 +245,7 @@ describe("observability operations assets", () => {
 
     for (const target of [
       "make observability-up",
+      "make observability-help",
       "make observability-preflight",
       "make observability-ready",
       "make observability-traffic",
@@ -248,11 +258,41 @@ describe("observability operations assets", () => {
     }
     expect(docs).toContain("always tears the stack down");
     expect(docs).toContain("prints compose status");
+    expect(docs).toContain("quick command map");
     expect(docs).toContain("make observability-logs");
     expect(docs).toContain("waits for metric export");
     expect(docs).toContain(
       "default local ports `3000`, `4317`, `4318`, `8080`, `9090`, and `9464`",
     );
+  });
+
+  it("prints local observability command help with resolved overrides", () => {
+    const result = spawnSync("sh", ["docs/observability/local-demo/help.sh"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GATEWAY_URL: "http://localhost:18088",
+        GRAFANA_URL: "http://localhost:13000",
+        OBSERVABILITY_COMPOSE_PROJECT: "observability-help-test",
+        OBSERVABILITY_DEMO_PORTS: "13000 18088 19090",
+      },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("local observability demo command help");
+    expect(result.stdout).toContain("make observability-smoke");
+    expect(result.stdout).toContain("make observability-preflight");
+    expect(result.stdout).toContain("make observability-status");
+    expect(result.stdout).toContain("make observability-down");
+    expect(result.stdout).toContain("gateway_readyz=http://localhost:18088/readyz");
+    expect(result.stdout).toContain(
+      "grafana_dashboard=http://localhost:13000/d/agent-gateway-ops/agent-gateway",
+    );
+    expect(result.stdout).toContain("compose_project=observability-help-test");
+    expect(result.stdout).toContain("ports_checked_by_preflight=13000 18088 19090");
+    expect(result.stdout).toContain("OBSERVABILITY_COMPOSE_PROJECT");
+    expect(result.stdout).toContain("AGENT_GATEWAY_DEMO_TOKEN");
   });
 
   it("waits for local demo readiness before one-command smoke traffic", () => {
