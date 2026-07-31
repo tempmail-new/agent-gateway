@@ -4,7 +4,7 @@ Agent Gateway is a small, production-shaped TypeScript service for authenticated
 
 ## Fastest Operator Paths
 
-First time here? Start with `docs/first-request-quickstart.md` to go from install to one authenticated local `POST /v1/requests` call and a readiness/auth check.
+First time here? Start with `docs/first-request-quickstart.md` to go from install to one authenticated local `POST /v1/requests` call and a readiness/auth check. If that path fails, use `docs/common-failure-modes.md` to map the response to auth, policy, budget, provider, readiness, deployment, or observability checks.
 
 | Goal                                                        | Command                            | What it proves                                                                                                                                                                          |
 | ----------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -16,7 +16,7 @@ First time here? Start with `docs/first-request-quickstart.md` to go from instal
 | Inspect observability helper commands before running Docker | `make observability-help`          | Prints the local demo command map, endpoint URLs, resolved compose defaults, and override knobs.                                                                                        |
 | Check a running observability demo without log noise        | `make observability-status`        | Prints compose state, gateway readiness, collector metric presence, Prometheus readiness, Grafana health, and dashboard availability.                                                   |
 
-Start with `docs/first-request-quickstart.md` for the local first-request path, `make validate` for repository hygiene, `make deployment-smoke` for the production-shaped container path, and `make observability-smoke` for the telemetry path. The deeper operator references are `docs/deployment/README.md`, `docs/observability/README.md`, and `docs/architecture.md`.
+Start with `docs/first-request-quickstart.md` for the local first-request path, `docs/common-failure-modes.md` when a request or smoke run fails, `make validate` for repository hygiene, `make deployment-smoke` for the production-shaped container path, and `make observability-smoke` for the telemetry path. The deeper operator references are `docs/deployment/README.md`, `docs/observability/README.md`, and `docs/architecture.md`.
 
 ## What Exists
 
