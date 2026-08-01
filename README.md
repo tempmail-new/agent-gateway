@@ -4,12 +4,13 @@ Agent Gateway is a small, production-shaped TypeScript service for authenticated
 
 ## Fastest Operator Paths
 
-First time here? Start with `docs/first-request-quickstart.md` to go from install to one authenticated local `POST /v1/requests` call and a readiness/auth check. After the local `echo` request works, use `docs/openai-compatible-provider-quickstart.md` to register one real outbound provider and call it explicitly. If either path fails, use `docs/common-failure-modes.md` to map the response to auth, policy, budget, provider, readiness, deployment, or observability checks.
+First time here? Start with `docs/first-request-quickstart.md` to go from install to one authenticated local `POST /v1/requests` call and a readiness/auth check. After the local `echo` request works, use `docs/openai-compatible-provider-quickstart.md` to register one real outbound provider and call it explicitly. Use `docs/operator-env-reference.md` when you need the smallest environment variable set for local, provider, deployment, guardrail, or telemetry runs. If either path fails, use `docs/common-failure-modes.md` to map the response to auth, policy, budget, provider, readiness, deployment, or observability checks.
 
 | Goal                                                        | Command                                         | What it proves                                                                                                                                                                          |
 | ----------------------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Make the first authenticated local request                  | `docs/first-request-quickstart.md`              | Installs dependencies, starts the local gateway, checks `/readyz`, sends one echo request with `dev-token`, and confirms the auth gate.                                                 |
 | Make the first real provider request                        | `docs/openai-compatible-provider-quickstart.md` | Registers the optional `openai-compatible` provider, checks `/readyz`, sends one authenticated outbound request, and diagnoses one provider error.                                      |
+| Choose runtime environment variables                        | `docs/operator-env-reference.md`                | Shows the smallest local, provider, deployment, guardrail, and telemetry variable sets with startup validation checks.                                                                  |
 | Validate the container deployment example                   | `make deployment-smoke`                         | Builds the image, mounts file-backed secrets, checks `/readyz` and the Docker healthcheck, sends an authenticated echo request, and verifies bad default-provider config fails startup. |
 | Inspect deployment helper commands before running Docker    | `make deployment-help`                          | Prints the smoke/manual command map, resolved default paths, and supported override knobs without touching the runtime.                                                                 |
 | Check a running deployment example without log noise        | `make deployment-status`                        | Prints compose state, `/readyz`, and container health for the local deployment example.                                                                                                 |
@@ -17,7 +18,7 @@ First time here? Start with `docs/first-request-quickstart.md` to go from instal
 | Inspect observability helper commands before running Docker | `make observability-help`                       | Prints the local demo command map, endpoint URLs, resolved compose defaults, and override knobs.                                                                                        |
 | Check a running observability demo without log noise        | `make observability-status`                     | Prints compose state, gateway readiness, collector metric presence, Prometheus readiness, Grafana health, and dashboard availability.                                                   |
 
-Start with `docs/first-request-quickstart.md` for the local first-request path, `docs/openai-compatible-provider-quickstart.md` for the first real provider call, `docs/common-failure-modes.md` when a request or smoke run fails, `make validate` for repository hygiene, `make deployment-smoke` for the production-shaped container path, and `make observability-smoke` for the telemetry path. The deeper operator references are `docs/deployment/README.md`, `docs/observability/README.md`, and `docs/architecture.md`.
+Start with `docs/first-request-quickstart.md` for the local first-request path, `docs/openai-compatible-provider-quickstart.md` for the first real provider call, `docs/operator-env-reference.md` for environment-variable choices, `docs/common-failure-modes.md` when a request or smoke run fails, `make validate` for repository hygiene, `make deployment-smoke` for the production-shaped container path, and `make observability-smoke` for the telemetry path. The deeper operator references are `docs/deployment/README.md`, `docs/observability/README.md`, and `docs/architecture.md`.
 
 ## What Exists
 
@@ -72,6 +73,8 @@ Response:
 ```
 
 ## Configuration
+
+Use `docs/operator-env-reference.md` for run-specific environment variable sets and startup validation checks.
 
 | Variable                                | Default                        | Purpose                                                                                                                                                 |
 | --------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
