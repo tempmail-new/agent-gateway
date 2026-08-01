@@ -27,7 +27,7 @@ describe("OpenAI-compatible provider quickstart", () => {
       "AGENT_GATEWAY_OPENAI_API_KEY",
       "AGENT_GATEWAY_OPENAI_API_KEY_FILE",
       "AGENT_GATEWAY_OPENAI_BASE_URL",
-      "AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS='openai-compatible:gpt-4o-mini'",
+      "AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS='echo:local-test,openai-compatible:gpt-4o-mini'",
       "curl -s http://localhost:8080/readyz",
       '"providers": ["echo", "openai-compatible"]',
       "http://localhost:8080/v1/requests",

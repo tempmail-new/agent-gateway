@@ -15,10 +15,10 @@ Keep the gateway token local and add only the provider credentials needed for th
 ```bash
 export AGENT_GATEWAY_API_KEYS=dev-token
 export AGENT_GATEWAY_OPENAI_API_KEY='<provider-api-key>'
-export AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS='openai-compatible:gpt-4o-mini'
+export AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS='echo:local-test,openai-compatible:gpt-4o-mini'
 ```
 
-The default provider can stay as `echo`. The request below names `provider: "openai-compatible"` explicitly, which keeps the local echo path available while proving the outbound provider path.
+The default provider can stay as `echo`. The allow list keeps the first quickstart's `echo:local-test` request available, and the request below names `provider: "openai-compatible"` explicitly to prove the outbound provider path.
 
 If your provider does not use OpenAI's default `https://api.openai.com/v1` base URL, set its Chat Completions-compatible API root:
 
