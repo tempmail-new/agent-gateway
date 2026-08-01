@@ -103,6 +103,7 @@ If `/readyz` fails, the process is not listening on `localhost:8080` or did not 
 
 ## Next Paths
 
+- Use `docs/common-failure-modes.md` when a request, readiness check, deployment smoke, or observability smoke fails.
 - Run `make validate` before changing code.
 - Run `make deployment-smoke` to prove the production-shaped container path.
 - Run `make observability-smoke` to prove telemetry export, Prometheus rules, and Grafana provisioning.
