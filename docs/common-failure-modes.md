@@ -67,6 +67,18 @@ For local deployment checks, `make deployment-up`, `make deployment-ready`, `mak
 
 Use `docs/operator-env-reference.md` to check the smallest local, provider, deployment, guardrail, and telemetry environment variable sets before restarting.
 
+## Deployment Smoke Failures
+
+When `make deployment-smoke` fails after the container starts, run the low-noise state check first:
+
+```bash
+make deployment-status
+```
+
+Use `make deployment-diagnose` when status output is not enough. It prints the resolved deployment configuration without secret values, compose state, `/readyz`, Docker health, and recent gateway logs.
+
+If the smoke run fails before startup, fix the preflight message first. The common early blockers are Docker not running, the Docker Compose plugin missing, local port `18080` already in use, stale containers from a previous run, missing or empty secret files, or an `AGENT_GATEWAY_DEPLOYMENT_EXAMPLE_TOKEN` value that is not present in the mounted gateway API keys file.
+
 ## Observability Checks
 
 When the gateway is running with the observability demo, use:
