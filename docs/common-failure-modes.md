@@ -65,6 +65,8 @@ The gateway fails before listening when configuration is invalid. Common startup
 
 For local deployment checks, `make deployment-up`, `make deployment-ready`, `make deployment-request`, `make deployment-logs`, and `make deployment-down` print targeted diagnostics when they fail. Use `make deployment-help` before manual runs to see the command map, resolved defaults, and override knobs.
 
+Use `docs/operator-env-reference.md` to check the smallest local, provider, deployment, guardrail, and telemetry environment variable sets before restarting.
+
 ## Observability Checks
 
 When the gateway is running with the observability demo, use:

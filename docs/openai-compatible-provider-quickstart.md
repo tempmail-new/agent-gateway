@@ -28,6 +28,8 @@ export AGENT_GATEWAY_OPENAI_BASE_URL='https://provider.example/v1'
 
 For mounted or local secret files, use `AGENT_GATEWAY_OPENAI_API_KEY_FILE` instead of `AGENT_GATEWAY_OPENAI_API_KEY`; do not set both.
 
+Use `docs/operator-env-reference.md` for the full provider, deployment secret, guardrail, and telemetry environment map.
+
 ## 2. Start The Gateway
 
 ```bash
