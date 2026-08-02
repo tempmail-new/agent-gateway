@@ -4,6 +4,8 @@ These examples are small operator run paths for the existing gateway runtime. Th
 
 ## Container Smoke Example
 
+For the shortest first run from clone to smoke result, use `docs/deployment-smoke-quickstart.md`.
+
 Run the production-shaped container example:
 
 ```bash
