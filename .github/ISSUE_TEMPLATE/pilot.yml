@@ -1,0 +1,127 @@
+name: Narrow pilot plan
+description: Track the owner, scope, runtime decisions, and expected failures for a narrow Agent Gateway pilot.
+title: "[Pilot]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this issue after `docs/operator-acceptance-checklist.md` passes. Copy decisions from `docs/pilot-configuration-template.md`, keep the scope narrow, and record the first checks the team will use when expected failures occur.
+  - type: input
+    id: pilot-name
+    attributes:
+      label: Pilot name
+      description: Short name for the pilot.
+      placeholder: Support triage summarization
+    validations:
+      required: true
+  - type: input
+    id: owner
+    attributes:
+      label: Owner
+      description: Person accountable for the pilot decision and rollback.
+      placeholder: "@team-member"
+    validations:
+      required: true
+  - type: input
+    id: tenant-workflow
+    attributes:
+      label: Tenant or workflow
+      description: The single tenant, workflow, or request class allowed into this pilot.
+      placeholder: support-demo tenant, summarize-ticket workflow
+    validations:
+      required: true
+  - type: input
+    id: review-date
+    attributes:
+      label: Review date
+      description: Date when the team will decide whether to continue, change, or stop the pilot.
+      placeholder: YYYY-MM-DD
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment-path
+    attributes:
+      label: Deployment path
+      description: The path the team will use before sending pilot traffic.
+      options:
+        - Local first request
+        - OpenAI-compatible provider quickstart
+        - Deployment smoke example
+        - Team-owned deployment
+    validations:
+      required: true
+  - type: textarea
+    id: success-signal
+    attributes:
+      label: Success signal
+      description: The smallest measurable signal that proves the pilot is useful.
+      placeholder: 20 accepted requests with expected output shape and no unplanned policy bypasses.
+    validations:
+      required: true
+  - type: textarea
+    id: rollback-trigger
+    attributes:
+      label: Rollback trigger
+      description: The condition that stops pilot traffic or returns it to the local echo path.
+      placeholder: Provider errors exceed the team's threshold or the allow policy blocks required fallback traffic.
+    validations:
+      required: true
+  - type: textarea
+    id: provider-model-policy
+    attributes:
+      label: Provider/model allow policy
+      description: Record `AGENT_GATEWAY_DEFAULT_PROVIDER` and `AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS`.
+      placeholder: |
+        AGENT_GATEWAY_DEFAULT_PROVIDER=echo
+        AGENT_GATEWAY_ALLOWED_PROVIDER_MODELS=echo:local-test,openai-compatible:gpt-4o-mini
+    validations:
+      required: true
+  - type: textarea
+    id: request-guardrails
+    attributes:
+      label: Request body, input, and token guardrails
+      description: Record `AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES`, `AGENT_GATEWAY_MAX_INPUT_BYTES`, and `AGENT_GATEWAY_MAX_INPUT_TOKENS`.
+      placeholder: |
+        AGENT_GATEWAY_MAX_REQUEST_BODY_BYTES=32768
+        AGENT_GATEWAY_MAX_INPUT_BYTES=12000
+        AGENT_GATEWAY_MAX_INPUT_TOKENS=3000
+    validations:
+      required: true
+  - type: textarea
+    id: secret-sources
+    attributes:
+      label: Gateway and provider secret sources
+      description: Prefer mounted secret files for deployment pilots; record the local-shell exception only when intentional.
+      placeholder: |
+        AGENT_GATEWAY_API_KEYS_FILE=/run/secrets/agent-gateway-api-keys
+        AGENT_GATEWAY_OPENAI_API_KEY_FILE=/run/secrets/openai-api-key
+    validations:
+      required: true
+  - type: textarea
+    id: telemetry
+    attributes:
+      label: Telemetry endpoint and service name
+      description: Record `OTEL_SERVICE_NAME` plus the trace and metric export endpoint choices.
+      placeholder: |
+        OTEL_SERVICE_NAME=agent-gateway-pilot
+        OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=
+        OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=
+    validations:
+      required: true
+  - type: textarea
+    id: expected-failure-handling
+    attributes:
+      label: Expected failure handling
+      description: Record the expected response and first check for schema, policy, request-size, input-size, budget, provider, deployment, and telemetry failures.
+      placeholder: |
+        invalid_request -> docs/guardrail-verification-quickstart.md
+        policy_rejected -> docs/operator-env-reference.md#guardrails
+        request_body_too_large -> docs/operator-env-reference.md#guardrails
+        input_too_large -> docs/operator-env-reference.md#guardrails
+        budget_exceeded -> docs/operator-env-reference.md#guardrails
+        provider_error -> docs/common-failure-modes.md#provider-errors
+        deployment smoke failure -> make deployment-status, then make deployment-diagnose
+        telemetry smoke failure -> make observability-status, then make observability-inspect
+    validations:
+      required: true
