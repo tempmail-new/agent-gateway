@@ -24,4 +24,4 @@ Use this checklist when a small team is deciding whether the gateway is ready fo
 
 The gateway is ready for a narrow pilot when the first-request path, one provider path, one deployment smoke, one guardrail rejection run, one observability smoke, and `make validate` all pass in the target developer environment.
 
-Before moving beyond a pilot, record the chosen provider models, request-size and input-token limits, telemetry backend, secret-mounting approach, and expected failure response handling. Use `docs/operator-env-reference.md` for the runtime variables and `docs/architecture.md` for the provider-boundary shape.
+Before moving beyond a pilot, record the chosen provider models, request-size and input-token limits, telemetry backend, secret-mounting approach, and expected failure response handling in `docs/pilot-configuration-template.md`. Use `docs/operator-env-reference.md` for the runtime variables and `docs/architecture.md` for the provider-boundary shape.
