@@ -4,6 +4,8 @@ Use this template after `docs/operator-acceptance-checklist.md` passes and befor
 
 Keep the pilot intentionally small. Choose one tenant or workflow, one provider route, one deployment path, and the first failure responses the team will treat as expected operator signals.
 
+When the decisions are ready to track, open `.github/ISSUE_TEMPLATE/pilot.yml` and copy the completed values into the repository-native pilot issue.
+
 ## Pilot Scope
 
 Copy this block into the pilot issue, runbook, or deployment notes:
