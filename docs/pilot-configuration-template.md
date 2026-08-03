@@ -4,7 +4,7 @@ Use this template after `docs/operator-acceptance-checklist.md` passes and befor
 
 Keep the pilot intentionally small. Choose one tenant or workflow, one provider route, one deployment path, and the first failure responses the team will treat as expected operator signals.
 
-When the decisions are ready to track, open `.github/ISSUE_TEMPLATE/pilot.yml` and copy the completed values into the repository-native pilot issue.
+When the decisions are ready to track, open `.github/ISSUE_TEMPLATE/pilot.yml` and copy the completed values into the repository-native pilot issue. Before sending real pilot traffic, use `docs/pilot-dry-run-runbook.md` to rehearse those decisions once and record the go/no-go evidence.
 
 ## Pilot Scope
 
@@ -95,3 +95,4 @@ Before sending pilot traffic:
 - Confirm the allow list includes the local `echo:local-test` path if rollback or diagnostics depend on it.
 - Confirm guardrail limits reject the cases documented in `docs/guardrail-verification-quickstart.md`.
 - Confirm the telemetry backend receives gateway metrics through `make observability-smoke` or the team's equivalent collector check.
+- Run `docs/pilot-dry-run-runbook.md` and record the dry-run evidence block in the pilot issue.
