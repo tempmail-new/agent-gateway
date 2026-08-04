@@ -41,6 +41,8 @@ When exported through the collector's Prometheus exporter, dots become underscor
 
 ## Local Demo
 
+For the shortest first run from a fresh clone, use `docs/observability-smoke-quickstart.md`.
+
 Run the full local smoke flow:
 
 ```bash

@@ -4,6 +4,8 @@ This demo starts the gateway with the shipped OpenTelemetry Collector, Prometheu
 
 ## One-Command Smoke
 
+For the shortest fresh-clone guide, start with `docs/observability-smoke-quickstart.md`.
+
 ```bash
 make observability-smoke
 ```
