@@ -149,6 +149,8 @@ Validation:
 make validate
 ```
 
+Contributor workflow, documentation expectations, and PR hygiene are covered in `CONTRIBUTING.md`.
+
 ## Roadmap
 
 The production slice is intentionally narrow. Future observability work should respond to concrete gaps from gateway usage before expanding the metric taxonomy.
