@@ -1,6 +1,6 @@
 # Operator Acceptance Checklist
 
-Use this checklist when a small team is deciding whether the gateway is ready for a pilot. It keeps the evaluation to the proof points that exist in this repository today: local request intake, one real provider path, deployment smoke, guardrail rejection, observability, and repository hygiene.
+Use this checklist when a small team is deciding whether the gateway is ready for a pilot. It keeps the evaluation to the proof points that exist in this repository today: local request intake, one real provider path, deployment smoke, guardrail rejection, observability, and repository hygiene. If you are still choosing the right operator guide, start with `docs/operator-journey-index.md`.
 
 ## Prerequisites
 
