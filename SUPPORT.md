@@ -13,11 +13,11 @@ Start with `docs/operator-journey-index.md` when you are not sure which guide fi
 - `docs/observability-smoke-quickstart.md` for the local telemetry smoke path.
 - `docs/common-failure-modes.md` when a request, deployment smoke, provider call, or telemetry run fails.
 
-If those guides do not answer the question, open a GitHub issue with the command you ran, the expected result, the actual result, and any non-sensitive configuration needed to reproduce it.
+If those guides do not answer the question, open the GitHub bug report form at `.github/ISSUE_TEMPLATE/bug.yml` with the command you ran, the expected result, the actual result, and any non-sensitive configuration needed to reproduce it.
 
 ## Bug Reports
 
-Use a GitHub issue for reproducible bugs in the gateway runtime, documentation, deployment example, observability assets, or validation workflow. Include:
+Use the GitHub bug report form at `.github/ISSUE_TEMPLATE/bug.yml` for reproducible bugs in the gateway runtime, documentation, deployment example, observability assets, or validation workflow. Include:
 
 - affected commit, tag, or branch
 - Node.js version, operating system, and Docker version when relevant

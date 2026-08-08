@@ -52,7 +52,7 @@ Report suspected vulnerabilities through `SECURITY.md`. Use a private GitHub adv
 
 ## Support
 
-Use `SUPPORT.md` to route usage questions, reproducible bugs, narrow pilot planning, and security disclosures to the right existing repository path.
+Use `SUPPORT.md` to route usage questions, reproducible bugs, narrow pilot planning, and security disclosures to the right existing repository path. Reproducible bugs use the GitHub issue form at `.github/ISSUE_TEMPLATE/bug.yml`.
 
 ## API
 

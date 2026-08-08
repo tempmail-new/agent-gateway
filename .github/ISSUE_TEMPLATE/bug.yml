@@ -1,0 +1,88 @@
+name: Bug report
+description: Report a reproducible Agent Gateway runtime, documentation, deployment, observability, or validation bug.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for reproducible bugs. For usage questions, pilot planning, or suspected vulnerabilities, follow `SUPPORT.md`; do not disclose bearer tokens, provider keys, mounted secret values, prompts, raw request payloads, screenshots with secrets, or production logs in public issues.
+  - type: input
+    id: affected-version
+    attributes:
+      label: Affected commit, tag, or branch
+      description: The exact revision where you saw the problem.
+      placeholder: 99ca7df, v0.1.0, or main
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Pick the part of the repository where the bug shows up.
+      options:
+        - Gateway runtime
+        - Documentation
+        - Deployment example
+        - Observability assets
+        - Validation workflow
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include Node.js version, operating system, Docker version when relevant, and whether this used the local, provider, deployment, guardrail, or telemetry path.
+      placeholder: |
+        Node.js:
+        OS:
+        Docker:
+        Path: docs/first-request-quickstart.md
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: List the exact command, request shape, or guide step that failed.
+      placeholder: |
+        1. Run `npm ci`
+        2. Run `npm run dev`
+        3. Send `POST /v1/requests` with ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead? Include status codes or command output when useful.
+    validations:
+      required: true
+  - type: textarea
+    id: sanitized-evidence
+    attributes:
+      label: Sanitized logs or responses
+      description: Remove bearer tokens, provider keys, mounted secret values, prompts, raw request payloads, screenshots with secrets, and production data.
+      placeholder: |
+        status: 500
+        body: {"error":"provider_error","code":"upstream_failure"}
+        log excerpt: ...
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety-checks
+    attributes:
+      label: Safety checks
+      options:
+        - label: I removed bearer tokens, provider keys, mounted secret values, prompts, raw request payloads, screenshots with secrets, and production data.
+          required: true
+        - label: This is not a suspected vulnerability; if it is, I will use `SECURITY.md` instead of a public issue.
+          required: true
