@@ -50,6 +50,10 @@ Start with `docs/operator-journey-index.md` to choose the right operator guide b
 
 Report suspected vulnerabilities through `SECURITY.md`. Use a private GitHub advisory when possible, and do not disclose bearer tokens, provider keys, mounted secret values, prompts, raw request payloads, or production logs in public issues or pull requests.
 
+## Support
+
+Use `SUPPORT.md` to route usage questions, reproducible bugs, narrow pilot planning, and security disclosures to the right existing repository path.
+
 ## API
 
 ```bash
