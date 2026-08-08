@@ -46,6 +46,10 @@ Start with `docs/operator-journey-index.md` to choose the right operator guide b
 - Vitest coverage for auth, routing, validation, provider errors, and mocked outbound provider calls.
 - Dockerfile with a readiness healthcheck, Makefile, ESLint, Prettier, TypeScript build, and GitHub Actions CI.
 
+## Security
+
+Report suspected vulnerabilities through `SECURITY.md`. Use a private GitHub advisory when possible, and do not disclose bearer tokens, provider keys, mounted secret values, prompts, raw request payloads, or production logs in public issues or pull requests.
+
 ## API
 
 ```bash
