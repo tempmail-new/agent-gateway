@@ -47,3 +47,7 @@ Prefer explicit boundaries over hidden behavior. Keep provider-specific code beh
 ## Pull Request Shape
 
 Keep PRs scoped to one outcome and use a truthful Conventional Commit subject. In the PR description, include what changed, how you validated it, and any operator-facing docs that moved with the change.
+
+## Dependency Maintenance
+
+Dependabot checks npm dependencies and GitHub Actions weekly through `.github/dependabot.yml`. Review grouped production, development, and workflow update pull requests with the same validation order as other changes: format, lint, tests, build, and `make validate`.
