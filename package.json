@@ -2,6 +2,7 @@
   "name": "agent-gateway",
   "version": "0.1.0",
   "description": "Provider-agnostic gateway for authenticated agent and LLM request intake.",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=22"
