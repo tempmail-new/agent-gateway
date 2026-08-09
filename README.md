@@ -54,6 +54,10 @@ Report suspected vulnerabilities through `SECURITY.md`. Use a private GitHub adv
 
 Use `SUPPORT.md` to route usage questions, reproducible bugs, narrow pilot planning, and security disclosures to the right existing repository path. Reproducible bugs use the GitHub issue form at `.github/ISSUE_TEMPLATE/bug.yml`.
 
+## Maintenance
+
+CI runs format, lint, tests, and build on pull requests and pushes to `main`. Dependabot is configured in `.github/dependabot.yml` to check npm dependencies and GitHub Actions weekly, with grouped production, development, and workflow update pull requests so maintenance stays reviewable.
+
 ## License
 
 Agent Gateway is released under the MIT License. See `LICENSE` for the full terms and the matching SPDX identifier in `package.json`.
