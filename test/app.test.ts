@@ -243,8 +243,8 @@ describe("agent gateway app", () => {
       error: "invalid_request",
       reason: "request_schema_invalid",
     });
-    expect(response.json().details.formErrors).toContain(
-      "Unrecognized key(s) in object: 'temperature'",
+    expect(response.json().details.formErrors).toEqual(
+      expect.arrayContaining([expect.stringContaining("temperature")]),
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });

@@ -24,7 +24,7 @@ import type { GatewayRequest, GatewayResponse, RequestContext } from "./types.js
 const gatewayRequestSchema = z
   .object({
     input: nonBlankStringSchema("input"),
-    metadata: z.record(z.union([z.boolean(), z.number(), z.string()])).optional(),
+    metadata: z.record(z.string(), z.union([z.boolean(), z.number(), z.string()])).optional(),
     model: nonBlankStringSchema("model"),
     provider: nonBlankStringSchema("provider").optional(),
   })
