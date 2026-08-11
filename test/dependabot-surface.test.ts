@@ -58,6 +58,8 @@ describe("dependency maintenance surface", () => {
       "Dependabot checks npm dependencies and GitHub Actions weekly",
       ".github/dependabot.yml",
       "format, lint, tests, build, and `make validate`",
+      "TypeScript 7 is installed through the `@typescript/native` npm alias",
+      "`typescript` dependency stays aliased to `@typescript/typescript6`",
     ]) {
       expect(contributing).toContain(expected);
     }
