@@ -4,7 +4,7 @@ Use this checklist when a small team is deciding whether the gateway is ready fo
 
 ## Prerequisites
 
-- Node.js `22` or newer.
+- Node.js `22.12.0` or newer.
 - `curl`.
 - Docker and Docker Compose for the deployment and observability smoke paths.
 - A provider API key only for the `openai-compatible` provider check.

@@ -4,7 +4,7 @@ Use this path after the first local request works and you want the shortest safe
 
 ## Prerequisites
 
-- Node.js `22` or newer.
+- Node.js `22.12.0` or newer.
 - `curl`.
 
 ## 1. Clone And Install

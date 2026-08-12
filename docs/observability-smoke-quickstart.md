@@ -6,7 +6,7 @@ Use this path when the local `echo` request works and you want the shortest proo
 
 - Docker Engine or Docker Desktop is running.
 - Docker Compose plugin is available as `docker compose`.
-- Node.js `22` or newer is available for local helper checks.
+- Node.js `22.12.0` or newer is available for local helper checks.
 
 No live model-provider credentials are required. The smoke path uses the local `echo` provider.
 

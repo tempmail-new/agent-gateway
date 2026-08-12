@@ -22,7 +22,7 @@ describe("contributing guide", () => {
     const guide = readRepoFile("CONTRIBUTING.md");
 
     for (const expected of [
-      "Node.js `22`",
+      "Node.js `22.12.0`",
       "npm ci",
       "npm run dev",
       "npm run fmt",

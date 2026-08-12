@@ -32,7 +32,7 @@ describe("observability smoke quickstart", () => {
       "cd agent-gateway",
       "Docker Engine or Docker Desktop",
       "docker compose",
-      "Node.js `22` or newer",
+      "Node.js `22.12.0` or newer",
       "No live model-provider credentials are required",
       "make observability-smoke",
       "make observability-preflight",

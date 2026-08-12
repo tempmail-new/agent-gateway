@@ -80,7 +80,7 @@ if require_command "docker" "Install Docker Desktop or Docker Engine, then retry
   fi
 fi
 
-if require_command "node" "Install Node.js 22 or newer so the preflight can verify local port availability."; then
+if require_command "node" "Install Node.js 22.12.0 or newer so the preflight can verify local port availability."; then
   for port in $DEMO_PORTS; do
     check_port "$port" || true
   done

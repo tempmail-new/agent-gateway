@@ -4,7 +4,7 @@ Agent Gateway is intentionally narrow: one authenticated request intake service,
 
 ## Local Setup
 
-Use Node.js `22` or newer.
+Use Node.js `22.12.0` or newer.
 
 ```bash
 npm ci
