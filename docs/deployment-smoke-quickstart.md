@@ -6,7 +6,7 @@ Use this path when the local `echo` request works and you want the shortest prod
 
 - Docker Engine or Docker Desktop is running.
 - Docker Compose plugin is available as `docker compose`.
-- Node.js 22 or newer is available for the deployment preflight checks.
+- Node.js 22.12.0 or newer is available for the deployment preflight checks.
 
 ## Run The Smoke
 

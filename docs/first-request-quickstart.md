@@ -4,7 +4,7 @@ Use this path when you want the shortest local proof that the gateway clones, in
 
 ## Prerequisites
 
-- Node.js `22` or newer.
+- Node.js `22.12.0` or newer.
 - `curl`.
 
 ## 1. Clone

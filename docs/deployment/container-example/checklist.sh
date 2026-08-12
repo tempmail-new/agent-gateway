@@ -141,7 +141,7 @@ if check_command "docker" "Install Docker Desktop or Docker Engine before starti
   fi
 fi
 
-if check_command "node" "Install Node.js 22 or newer so deployment-preflight can verify local ports and secret file contents."; then
+if check_command "node" "Install Node.js 22.12.0 or newer so deployment-preflight can verify local ports and secret file contents."; then
   check_gateway_request_token || true
 fi
 
