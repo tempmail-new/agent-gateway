@@ -51,3 +51,5 @@ Keep PRs scoped to one outcome and use a truthful Conventional Commit subject. I
 ## Dependency Maintenance
 
 Dependabot checks npm dependencies and GitHub Actions weekly through `.github/dependabot.yml`. Review grouped production, development, and workflow update pull requests with the same validation order as other changes: format, lint, tests, build, and `make validate`.
+
+TypeScript 7 is installed through the `@typescript/native` npm alias so `npm run build` uses the native `tsc` compiler. The `typescript` dependency stays aliased to `@typescript/typescript6` because `typescript-eslint` still needs the TypeScript 6 programmatic API for linting.
