@@ -25,7 +25,7 @@ First time here? Start with `docs/operator-journey-index.md` when you want to ch
 | Inspect observability helper commands before running Docker | `make observability-help`                       | Prints the local demo command map, endpoint URLs, resolved compose defaults, and override knobs.                                                                                        |
 | Check a running observability demo without log noise        | `make observability-status`                     | Prints compose state, gateway readiness, collector metric presence, Prometheus readiness, Grafana health, and dashboard availability.                                                   |
 
-Start with `docs/operator-journey-index.md` to choose the right operator guide by goal, `docs/first-request-quickstart.md` for the local first-request path, `docs/openai-compatible-provider-quickstart.md` for the first real provider call, `docs/deployment-smoke-quickstart.md` for the production-shaped container path, `docs/guardrail-verification-quickstart.md` for local rejection proofs, `docs/observability-smoke-quickstart.md` for the telemetry smoke path, `docs/operator-acceptance-checklist.md` for pilot readiness, `docs/pilot-configuration-template.md` for narrow pilot decisions, `.github/ISSUE_TEMPLATE/pilot.yml` for tracked pilot planning, `docs/pilot-dry-run-runbook.md` for the final rehearsal before pilot traffic, `docs/operator-env-reference.md` for environment-variable choices, `docs/common-failure-modes.md` when a request or smoke run fails, and `make validate` for repository hygiene. The deeper operator references are `docs/deployment/README.md`, `docs/observability/README.md`, and `docs/architecture.md`.
+Start with `docs/operator-journey-index.md` to choose the right operator guide by goal, `docs/first-request-quickstart.md` for the local first-request path, `docs/openai-compatible-provider-quickstart.md` for the first real provider call, `docs/deployment-smoke-quickstart.md` for the production-shaped container path, `docs/guardrail-verification-quickstart.md` for local rejection proofs, `docs/observability-smoke-quickstart.md` for the telemetry smoke path, `docs/operator-acceptance-checklist.md` for pilot readiness, `docs/pilot-configuration-template.md` for narrow pilot decisions, `.github/ISSUE_TEMPLATE/pilot.yml` for tracked pilot planning, `docs/pilot-dry-run-runbook.md` for the final rehearsal before pilot traffic, `docs/operator-env-reference.md` for environment-variable choices, `docs/api-contract.md` for request, response, error, and readiness semantics, `docs/common-failure-modes.md` when a request or smoke run fails, and `make validate` for repository hygiene. The deeper operator references are `docs/deployment/README.md`, `docs/observability/README.md`, and `docs/architecture.md`.
 
 ## Architecture And Decisions
 
@@ -67,6 +67,8 @@ CI runs format, lint, tests, and build on pull requests and pushes to `main`. De
 Agent Gateway is released under the MIT License. See `LICENSE` for the full terms and the matching SPDX identifier in `package.json`.
 
 ## API
+
+Use `docs/api-contract.md` for the full request-body, success-response, error, `/healthz`, and `/readyz` contract.
 
 ```bash
 curl -s http://localhost:8080/v1/requests \
