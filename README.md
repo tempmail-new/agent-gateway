@@ -27,6 +27,10 @@ First time here? Start with `docs/operator-journey-index.md` when you want to ch
 
 Start with `docs/operator-journey-index.md` to choose the right operator guide by goal, `docs/first-request-quickstart.md` for the local first-request path, `docs/openai-compatible-provider-quickstart.md` for the first real provider call, `docs/deployment-smoke-quickstart.md` for the production-shaped container path, `docs/guardrail-verification-quickstart.md` for local rejection proofs, `docs/observability-smoke-quickstart.md` for the telemetry smoke path, `docs/operator-acceptance-checklist.md` for pilot readiness, `docs/pilot-configuration-template.md` for narrow pilot decisions, `.github/ISSUE_TEMPLATE/pilot.yml` for tracked pilot planning, `docs/pilot-dry-run-runbook.md` for the final rehearsal before pilot traffic, `docs/operator-env-reference.md` for environment-variable choices, `docs/common-failure-modes.md` when a request or smoke run fails, and `make validate` for repository hygiene. The deeper operator references are `docs/deployment/README.md`, `docs/observability/README.md`, and `docs/architecture.md`.
 
+## Architecture And Decisions
+
+Use `docs/architecture.md` for the runtime shape, request flow, module boundaries, and current tradeoffs. Use `docs/adr/0001-provider-boundary.md` for the first accepted decision: starting with a provider boundary and deterministic local `echo` adapter before adding networked model providers.
+
 ## What Exists
 
 - Fastify API with `/healthz`, `/readyz`, and `POST /v1/requests`.
