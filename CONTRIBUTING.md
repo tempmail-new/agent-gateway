@@ -48,6 +48,10 @@ Prefer explicit boundaries over hidden behavior. Keep provider-specific code beh
 
 Keep PRs scoped to one outcome and use a truthful Conventional Commit subject. In the PR description, include what changed, how you validated it, and any operator-facing docs that moved with the change.
 
+## Release Hygiene
+
+Use `docs/release-checklist.md` when preparing a release. It defines the semantic versioning policy, release-note expectations, validation order, and minimal `main` tag flow. Release PRs should keep `package.json` and `package-lock.json` versions aligned with the tag being cut, and tags should only be created after validation passes on the updated `main`.
+
 ## Dependency Maintenance
 
 Dependabot checks npm dependencies and GitHub Actions weekly through `.github/dependabot.yml`. Review grouped production, development, and workflow update pull requests with the same validation order as other changes: format, lint, tests, build, and `make validate`.
